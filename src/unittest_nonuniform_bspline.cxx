@@ -12,6 +12,7 @@
    file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+#include <common.hpp>
 #include <filesystem>
 #include <iganet.h>
 #include <iostream>
@@ -1412,7 +1413,7 @@ TEST_F(BSplineTest, NonUniformBSpline_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "domain1d/line.xml");
+      doc.load_file(iganet::getDataPath("domain1d/line.xml").c_str());
 
     iganet::NonUniformBSpline<real_t, 3, 2> bspline_in(options);
     bspline_in.from_xml(doc);
@@ -1430,7 +1431,7 @@ TEST_F(BSplineTest, NonUniformBSpline_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "domain2d/square.xml");
+      doc.load_file(iganet::getDataPath("domain2d/square.xml").c_str());
 
     iganet::NonUniformBSpline<real_t, 2, 1, 1> bspline_in(options);
     bspline_in.from_xml(doc, 1);
@@ -1444,7 +1445,7 @@ TEST_F(BSplineTest, NonUniformBSpline_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "domain3d/GshapedVolume.xml");
+      doc.load_file(iganet::getDataPath("domain3d/GshapedVolume.xml").c_str());
 
     iganet::NonUniformBSpline<real_t, 3, 2, 2, 2> bspline_in(options);
     bspline_in.from_xml(doc);
@@ -1453,7 +1454,7 @@ TEST_F(BSplineTest, NonUniformBSpline_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "surfaces/g_plus_s_surf.xml");
+      doc.load_file(iganet::getDataPath("surfaces/g_plus_s_surf.xml").c_str());
 
     iganet::NonUniformBSpline<real_t, 3, 3, 3> bspline_in0(options);
     iganet::NonUniformBSpline<real_t, 3, 3, 1> bspline_in1(options);

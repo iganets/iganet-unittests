@@ -12,6 +12,7 @@
    file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+#include <common.hpp>
 #include <filesystem>
 #include <iganet.h>
 #include <iostream>
@@ -1526,7 +1527,7 @@ TEST_F(BoundaryTest, Boundary_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "domain1d/line_boundary.xml");
+      doc.load_file(iganet::getDataPath("domain1d/line_boundary.xml").c_str());
 
     using BSpline = iganet::UniformBSpline<real_t, 4, 2>;
     iganet::Boundary<BSpline> boundary_in(options);
@@ -1555,7 +1556,7 @@ TEST_F(BoundaryTest, Boundary_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "domain2d/square_boundary.xml");
+      doc.load_file(iganet::getDataPath("domain2d/square_boundary.xml").c_str());
 
     using BSpline = iganet::UniformBSpline<real_t, 1, 2, 3>;
     iganet::Boundary<BSpline> boundary_in(options);
@@ -1590,7 +1591,7 @@ TEST_F(BoundaryTest, Boundary_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "domain3d/cube_boundary.xml");
+      doc.load_file(iganet::getDataPath("domain3d/cube_boundary.xml").c_str());
 
     using BSpline = iganet::UniformBSpline<real_t, 3, 2, 3, 2>;
     iganet::Boundary<BSpline> boundary_in(options);
@@ -1641,7 +1642,7 @@ TEST_F(BoundaryTest, Boundary_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-        doc.load_file(IGANET_DATA_DIR "domain4d/hypercube_boundary.xml");
+      doc.load_file(iganet::getDataPath("domain4d/hypercube_boundary.xml").c_str());
 
     using BSpline = iganet::UniformBSpline<real_t, 2, 2, 3, 2, 3>;
     iganet::Boundary<BSpline> boundary_in(options);
