@@ -107,21 +107,42 @@ configure_file(${PROJECT_SOURCE_DIR}/src/unittest_config.hpp.in
 ########################################################################
 # Collect unit test sources
 ########################################################################
+include(GNUInstallDirs)
+
 file(GLOB UNITTESTS src/*.cxx)
 
 foreach(unittest ${UNITTESTS})
 
   get_filename_component(name ${unittest} NAME_WE)
   add_executable(${name} ${unittest})
+  install(TARGETS ${name} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})  
 
   if(IGANET_BUILD_PCH AND NOT WIN32 AND NOT ${CMAKE_VERSION} VERSION_LESS "3.16.0")
     target_precompile_headers(${name} REUSE_FROM iganet_pch)
   endif()
 
-  target_compile_options(${name} PRIVATE "-DIGANET_DATA_DIR=\"${PROJECT_SOURCE_DIR}/filedata/\"")
   target_link_libraries(${name} PRIVATE iganet::core)
   target_link_libraries(${name} PRIVATE iganet::unittests)
   
   add_test(${name} ${name})
   
 endforeach()
+
+########################################################################
+# Create symbolic link to data files
+########################################################################
+file(MAKE_DIRECTORY
+  ${CMAKE_CURRENT_BINARY_DIR}/../${CMAKE_INSTALL_DATADIR}/iganet/unittests
+)
+execute_process(
+  COMMAND ${CMAKE_COMMAND} -E create_symlink
+          ${CMAKE_CURRENT_SOURCE_DIR}/filedata
+          ${CMAKE_CURRENT_BINARY_DIR}/../${CMAKE_INSTALL_DATADIR}/iganet/unittests/filedata
+)
+
+########################################################################
+# Install data files
+########################################################################
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/filedata/
+	DESTINATION ${CMAKE_INSTALL_DATADIR}/iganet/unittests/filedata
+)
