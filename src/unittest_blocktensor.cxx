@@ -17,8 +17,6 @@
 
 #include <gtest/gtest.h>
 
-#pragma nv_diag_suppress 20208
-
 TEST(BlockTensor, BlockTensor) {
   iganet::utils::BlockTensor<torch::Tensor, 2, 1> A(torch::ones({5, 5}),
                                                     2 * torch::ones({5, 5}));
@@ -235,5 +233,3 @@ int main(int argc, char **argv) {
   iganet::finalize();
   return result;
 }
-
-#pragma nv_diag_default 20208

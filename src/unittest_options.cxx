@@ -18,8 +18,6 @@
 
 #include <gtest/gtest.h>
 
-#pragma nv_diag_suppress 20208
-
 TEST(Options, Options_default) {
   iganet::Options<double> options;
 
@@ -115,5 +113,3 @@ int main(int argc, char **argv) {
   iganet::finalize();
   return result;
 }
-
-#pragma nv_diag_default 20208

@@ -18,17 +18,15 @@
 #include <gtest/gtest.h>
 #include <unittest_config.hpp>
 
-#pragma nv_diag_suppress 20208
-
 template <typename Optimizer, typename GeometryMap, typename Variable>
-class IgANet : public iganet::IgANet<Optimizer, GeometryMap, Variable> {
+class IgANet : public iganet::v1::IgANet<Optimizer, GeometryMap, Variable> {
 private:
-  using Base = iganet::IgANet<Optimizer, GeometryMap, Variable>;
+  using Base = iganet::v1::IgANet<Optimizer, GeometryMap, Variable>;
 
   typename Base::variable_collPts_type collPts_;
 
 public:
-  using iganet::IgANet<Optimizer, GeometryMap, Variable>::IgANet;
+  using iganet::v1::IgANet<Optimizer, GeometryMap, Variable>::IgANet;
 
   bool epoch(int64_t epoch) override { return false; }
 
@@ -37,7 +35,7 @@ public:
   }
 };
 
-TEST(BSpline, IgANet_UniformBSpline_1d) {
+TEST(BSpline, IgANet_v1_UniformBSpline_1d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -78,7 +76,7 @@ TEST(BSpline, IgANet_UniformBSpline_1d) {
   EXPECT_EQ(net.u().space().ncoeffs(0), 6);
 }
 
-TEST(BSpline, IgANet_UniformBSpline_2d) {
+TEST(BSpline, IgANet_v1_UniformBSpline_2d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -141,7 +139,7 @@ TEST(BSpline, IgANet_UniformBSpline_2d) {
   EXPECT_EQ(net.f().boundary().side<iganet::side::north>().ncoeffs(0), 4);
 }
 
-TEST(BSpline, IgANet_UniformBSpline_3d) {
+TEST(BSpline, IgANet_v1_UniformBSpline_3d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -234,7 +232,7 @@ TEST(BSpline, IgANet_UniformBSpline_3d) {
   EXPECT_EQ(net.f().boundary().side<iganet::side::back>().ncoeffs(1), 6);
 }
 
-TEST(BSpline, IgANet_UniformBSpline_4d) {
+TEST(BSpline, IgANet_v1_UniformBSpline_4d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -365,7 +363,7 @@ TEST(BSpline, IgANet_UniformBSpline_4d) {
   EXPECT_EQ(net.f().boundary().side<iganet::side::etime>().ncoeffs(2), 3);
 }
 
-TEST(BSpline, IgANet_NonUniformBSpline_1d) {
+TEST(BSpline, IgANet_v1_NonUniformBSpline_1d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -406,7 +404,7 @@ TEST(BSpline, IgANet_NonUniformBSpline_1d) {
   EXPECT_EQ(net.u().space().ncoeffs(0), 6);
 }
 
-TEST(BSpline, IgANet_NonUniformBSpline_2d) {
+TEST(BSpline, IgANet_v1_NonUniformBSpline_2d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -469,7 +467,7 @@ TEST(BSpline, IgANet_NonUniformBSpline_2d) {
   EXPECT_EQ(net.f().boundary().side<iganet::side::north>().ncoeffs(0), 4);
 }
 
-TEST(BSpline, IgANet_NonUniformBSpline_3d) {
+TEST(BSpline, IgANet_v1_NonUniformBSpline_3d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -562,7 +560,7 @@ TEST(BSpline, IgANet_NonUniformBSpline_3d) {
   EXPECT_EQ(net.f().boundary().side<iganet::side::back>().ncoeffs(1), 6);
 }
 
-TEST(BSpline, IgANet_NonUniformBSpline_4d) {
+TEST(BSpline, IgANet_v1_NonUniformBSpline_4d) {
   using namespace iganet::literals;
   using real_t = iganet::unittests::real_t;
   using Optimizer = torch::optim::Adam;
@@ -701,5 +699,3 @@ int main(int argc, char **argv) {
   iganet::finalize();
   return result;
 }
-
-#pragma nv_diag_default 20208

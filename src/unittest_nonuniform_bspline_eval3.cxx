@@ -20,8 +20,6 @@
 #include <unittest_bsplinelib.hpp>
 #include <unittest_config.hpp>
 
-#pragma nv_diag_suppress 20208
-
 using namespace iganet::unittests::literals;
 
 class BSplineTest : public ::testing::Test {
@@ -319,5 +317,3 @@ int main(int argc, char **argv) {
   iganet::finalize();
   return result;
 }
-
-#pragma nv_diag_default 20208
