@@ -280,6 +280,17 @@ TEST(BlockTensor, GeneralizedInverseAndCompoundScalarOperators) {
   EXPECT_NE(column, original);
 }
 
+TEST(BlockTensor, NumericScalarMultiplicationOnBothSides) {
+  iganet::utils::BlockTensor<torch::Tensor, 1, 2> tensor(
+      torch::tensor({1., 2.}), torch::tensor({3., 4.}));
+  auto right = tensor * 2.5;
+  auto left = 2 * tensor;
+  EXPECT_TRUE(torch::equal(right(0, 0), torch::tensor({2.5, 5.0})));
+  EXPECT_TRUE(torch::equal(right(0, 1), torch::tensor({7.5, 10.0})));
+  EXPECT_TRUE(torch::equal(left(0, 0), torch::tensor({2., 4.})));
+  EXPECT_TRUE(torch::equal(left(0, 1), torch::tensor({6., 8.})));
+}
+
 TEST(BlockTensor, RankThreeIndexSliceReorderAndMultiplication) {
   using BT3 = iganet::utils::BlockTensor<torch::Tensor, 2, 2, 2>;
   BT3 tensor(torch::tensor(0.), torch::tensor(1.), torch::tensor(2.),
@@ -304,6 +315,14 @@ TEST(BlockTensor, RankThreeIndexSliceReorderAndMultiplication) {
                                                        torch::tensor(2.));
   auto left_product = left * tensor;
   EXPECT_DOUBLE_EQ(left_product(0, 0, 0).item<double>(), 4.0);
+
+  iganet::utils::BlockTensor<torch::Tensor, 2, 1> right(torch::tensor(1.),
+                                                        torch::tensor(2.));
+  auto right_product = tensor * right;
+  EXPECT_DOUBLE_EQ(right_product(0, 0, 0).item<double>(), 2.0);
+  EXPECT_DOUBLE_EQ(right_product(1, 0, 0).item<double>(), 8.0);
+  EXPECT_DOUBLE_EQ(right_product(0, 0, 1).item<double>(), 14.0);
+  EXPECT_DOUBLE_EQ(right_product(1, 0, 1).item<double>(), 23.0);
 }
 
 int main(int argc, char **argv) {

@@ -22,6 +22,17 @@ public:
   nlohmann::json to_json() const override { return {{"value", 7}}; }
   void pretty_print(std::ostream &os) const override { os << "value=7"; }
 };
+
+template <std::size_t N>
+void expectGenericXmlRoundTrip(const std::vector<int64_t> &sizes) {
+  auto source = torch::arange(1, torch::prod(torch::tensor(sizes)).item<int64_t>() + 1,
+                              torch::kFloat64)
+                    .reshape(sizes);
+  auto doc = iganet::utils::to_xml<double, N>(source, "Tensor", 11, "rank");
+  auto restored = torch::zeros({0}, torch::kFloat64);
+  iganet::utils::from_xml<double, N>(doc, restored, "Tensor", 11, "rank");
+  EXPECT_TRUE(torch::equal(restored, source));
+}
 }
 
 TEST(Serialize, TensorAndTensorArrayToJson) {
@@ -122,4 +133,46 @@ TEST(Serialize, ReadsGenericTensorAndRejectsMalformedData) {
   node.child("Data").text().set("1 2 3");
   EXPECT_THROW((iganet::utils::from_xml<double, 2>(root, tensor, "Tensor", 1)),
                std::runtime_error);
+}
+
+TEST(Serialize, DocumentReturningOverloadsForwardMetadata) {
+  auto tensor = torch::tensor({{1., 2.}, {3., 4.}}, torch::kFloat64);
+  auto tensor_doc =
+      iganet::utils::to_xml<double, 2>(tensor, "Matrix", 4, "tensor");
+  auto tensor_node = tensor_doc.child("xml").child("Matrix");
+  ASSERT_TRUE(tensor_node);
+  EXPECT_EQ(tensor_node.attribute("id").as_int(), 4);
+  EXPECT_STREQ(tensor_node.attribute("label").value(), "tensor");
+
+  auto accessor = tensor.accessor<double, 2>();
+  auto accessor_doc = iganet::utils::to_xml(
+      accessor, tensor.sizes(), "Matrix", 5, "accessor");
+  EXPECT_EQ(accessor_doc.child("xml").child("Matrix").attribute("id").as_int(),
+            5);
+
+  iganet::utils::TensorArray<2> tensors{tensor, 2 * tensor};
+  auto array_doc =
+      iganet::utils::to_xml<double, 2>(tensors, "Matrix", 6, "array");
+  auto nodes = array_doc.child("xml").children("Matrix");
+  auto iterator = nodes.begin();
+  ASSERT_NE(iterator, nodes.end());
+  EXPECT_EQ(iterator->attribute("index").as_int(), 0);
+  ++iterator;
+  ASSERT_NE(iterator, nodes.end());
+  EXPECT_EQ(iterator->attribute("index").as_int(), 1);
+}
+
+TEST(Serialize, RoundTripsGenericXmlRanksThreeThroughSix) {
+  expectGenericXmlRoundTrip<3>({1, 2, 2});
+  expectGenericXmlRoundTrip<4>({1, 1, 2, 2});
+  expectGenericXmlRoundTrip<5>({1, 1, 1, 2, 2});
+  expectGenericXmlRoundTrip<6>({1, 1, 1, 1, 2, 2});
+}
+
+TEST(Serialize, RoundTripsOneDimensionalMatrix) {
+  auto source = torch::tensor({1., 2., 3.}, torch::kFloat64);
+  auto doc = iganet::utils::to_xml<double, 1>(source);
+  auto restored = torch::zeros({0}, torch::kFloat64);
+  iganet::utils::from_xml<double, 1>(doc, restored);
+  EXPECT_TRUE(torch::equal(restored, source));
 }

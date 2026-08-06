@@ -20,6 +20,11 @@ TEST(Tuple, TraitsConcatenationAndRepeat) {
   static_assert(iganet::utils::is_tuple_v<std::tuple<int, double>>);
   static_assert(!iganet::utils::is_tuple_v<int>);
   static_assert(!iganet::utils::is_tuple_of_tuples_v<int>);
+  static_assert(iganet::utils::is_tuple_of_tuples_v<
+                std::tuple<std::tuple<int>, std::tuple<double>>>);
+  static_assert(!iganet::utils::is_tuple_of_tuples_v<
+                std::tuple<std::tuple<int>, double>>);
+  static_assert(iganet::utils::is_tuple_of_tuples_v<std::tuple<>>);
   static_assert(std::is_same_v<iganet::utils::tuple_cat_t<
       std::tuple<int>, double, std::tuple<char>>, std::tuple<int, double, char>>);
   EXPECT_EQ(iganet::utils::repeat_tuple<3>(7), std::make_tuple(7, 7, 7));
@@ -68,4 +73,6 @@ TEST(Tuple, ConcatenatesAndSlicesAlongNonzeroDimension) {
                            torch::tensor({{1.}, {4.}})));
   EXPECT_TRUE(torch::equal(std::get<1>(tuple),
                            torch::tensor({{2., 3.}, {5., 6.}})));
+  EXPECT_TRUE(torch::equal(iganet::utils::cat_tuple_into_tensor(tuple, 1),
+                           source));
 }
