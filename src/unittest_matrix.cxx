@@ -83,3 +83,31 @@ TEST(Matrix, RejectsInvalidDimensionAndSize) {
                    invalid, {1, 1, 1, 1}, torch::ones({1, 1}), {1, 1})),
                std::runtime_error);
 }
+
+TEST(MatrixProperties, SparseCsrAgreesWithIndependentDenseConstruction) {
+  torch::manual_seed(161803);
+  constexpr int64_t matrix_rows = 7;
+  constexpr int64_t matrix_cols = 9;
+  constexpr int64_t populated_rows = 5;
+  constexpr int64_t entries_per_row = 4;
+
+  for (int sample = 0; sample < 20; ++sample) {
+    auto columns = torch::empty({populated_rows, entries_per_row},
+                                torch::kInt64);
+    auto values = torch::randn({populated_rows, entries_per_row},
+                               torch::kFloat64);
+    auto expected = torch::zeros({matrix_rows, matrix_cols}, torch::kFloat64);
+
+    for (int64_t row = 0; row < populated_rows; ++row) {
+      auto row_columns = torch::randperm(matrix_cols, torch::kInt64)
+                             .slice(0, 0, entries_per_row);
+      columns[row].copy_(row_columns);
+      for (int64_t entry = 0; entry < entries_per_row; ++entry)
+        expected.index_put_({row, row_columns[entry]}, values[row][entry]);
+    }
+
+    auto sparse = iganet::utils::to_sparseCsrTensor(
+        columns, values, {matrix_rows, matrix_cols});
+    EXPECT_TRUE(torch::equal(sparse.to_dense(), expected));
+  }
+}

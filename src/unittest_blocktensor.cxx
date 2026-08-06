@@ -54,8 +54,8 @@ TEST(BlockTensor, BlockTensor) {
 
   EXPECT_EQ(D.inv(),
             (iganet::utils::BlockTensor<torch::Tensor, 2, 2>(
-                -2.0 * torch::ones({5, 5}), 1.5 * torch::ones({5, 5}),
-                1.0 * torch::ones({5, 5}), -0.5 * torch::ones({5, 5}))));
+                -2.0 * torch::ones({5, 5}), 1.0 * torch::ones({5, 5}),
+                1.5 * torch::ones({5, 5}), -0.5 * torch::ones({5, 5}))));
 
   EXPECT_EQ(D.invtr(), D.inv().tr());
 
@@ -323,6 +323,53 @@ TEST(BlockTensor, RankThreeIndexSliceReorderAndMultiplication) {
   EXPECT_DOUBLE_EQ(right_product(1, 0, 0).item<double>(), 8.0);
   EXPECT_DOUBLE_EQ(right_product(0, 0, 1).item<double>(), 14.0);
   EXPECT_DOUBLE_EQ(right_product(1, 0, 1).item<double>(), 23.0);
+}
+
+TEST(BlockTensorProperties, InverseProductApproximatesIdentity) {
+  torch::manual_seed(1729);
+  for (int sample = 0; sample < 20; ++sample) {
+    auto values = torch::randn({4}, torch::kFloat64);
+    iganet::utils::BlockTensor<torch::Tensor, 2, 2> A(
+        values[0] + 3.0, values[1], values[2], values[3] + 3.0);
+    auto product = A * A.inv();
+    for (std::size_t row = 0; row < 2; ++row)
+      for (std::size_t col = 0; col < 2; ++col)
+        EXPECT_TRUE(torch::allclose(
+            product(row, col), torch::tensor(row == col ? 1.0 : 0.0,
+                                             torch::kFloat64),
+            1e-10, 1e-10));
+  }
+}
+
+TEST(BlockTensorProperties, GeneralizedInverseSatisfiesReconstruction) {
+  torch::manual_seed(2718);
+  for (int sample = 0; sample < 20; ++sample) {
+    auto values = torch::randn({6}, torch::kFloat64);
+    iganet::utils::BlockTensor<torch::Tensor, 3, 2> A(
+        values[0] + 2.0, values[1], values[2], values[3] + 2.0, values[4],
+        values[5]);
+    auto reconstructed = A * A.ginv() * A;
+    for (std::size_t row = 0; row < 3; ++row)
+      for (std::size_t col = 0; col < 2; ++col)
+        EXPECT_TRUE(torch::allclose(reconstructed(row, col), A(row, col),
+                                    1e-9, 1e-9));
+  }
+}
+
+TEST(BlockTensorProperties, ReorderFollowedByInverseRestoresRankThreeTensor) {
+  using BT = iganet::utils::BlockTensor<torch::Tensor, 2, 3, 4>;
+  BT tensor;
+  for (std::size_t slice = 0; slice < 4; ++slice)
+    for (std::size_t row = 0; row < 2; ++row)
+      for (std::size_t col = 0; col < 3; ++col)
+        tensor.set(row, col, slice,
+                   torch::tensor(static_cast<int64_t>(100 * slice + 10 * row +
+                                                       col)));
+
+  EXPECT_EQ(tensor.reorder_ikj().reorder_ikj(), tensor);
+  EXPECT_EQ(tensor.reorder_jik().reorder_jik(), tensor);
+  EXPECT_EQ(tensor.reorder_kji().reorder_kji(), tensor);
+  EXPECT_EQ(tensor.reorder_kij().reorder_kij().reorder_kij(), tensor);
 }
 
 int main(int argc, char **argv) {

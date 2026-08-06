@@ -57,3 +57,15 @@ TEST(Linalg, RejectsUnsupportedTensorRank) {
   auto a = torch::ones({1, 1, 1, 1, 1, 1, 1, 1, 1});
   EXPECT_THROW(iganet::utils::kronproduct(a, a), std::runtime_error);
 }
+
+TEST(LinalgProperties, VariadicKronAgreesWithNestedTorchKron) {
+  torch::manual_seed(314159);
+  for (int sample = 0; sample < 20; ++sample) {
+    auto a = torch::randn({2 + sample % 2}, torch::kFloat64);
+    auto b = torch::randn({2, 2}, torch::kFloat64);
+    auto c = torch::randn({1 + sample % 3}, torch::kFloat64);
+    auto actual = iganet::utils::kron(a, b, c);
+    auto expected = torch::kron(a, torch::kron(b, c));
+    EXPECT_TRUE(torch::equal(actual, expected));
+  }
+}

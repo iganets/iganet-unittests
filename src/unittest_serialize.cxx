@@ -176,3 +176,33 @@ TEST(Serialize, RoundTripsOneDimensionalMatrix) {
   iganet::utils::from_xml<double, 1>(doc, restored);
   EXPECT_TRUE(torch::equal(restored, source));
 }
+
+TEST(SerializeProperties, RoundTripPreservesValuesShapeDtypeAndMetadata) {
+  for (const auto dtype : {torch::kFloat32, torch::kFloat64}) {
+    auto source = torch::arange(24, torch::TensorOptions{}.dtype(dtype))
+                      .reshape({2, 3, 4});
+    auto doc = dtype == torch::kFloat32
+                   ? iganet::utils::to_xml<float, 3>(source, "Tensor", 37,
+                                                      "property", 9)
+                   : iganet::utils::to_xml<double, 3>(source, "Tensor", 37,
+                                                       "property", 9);
+
+    auto node = doc.child("xml").child("Tensor");
+    ASSERT_TRUE(node);
+    EXPECT_EQ(node.attribute("id").as_int(), 37);
+    EXPECT_EQ(node.attribute("index").as_int(), 9);
+    EXPECT_STREQ(node.attribute("label").value(), "property");
+
+    auto restored = torch::zeros({0}, torch::TensorOptions{}.dtype(dtype));
+    if (dtype == torch::kFloat32)
+      iganet::utils::from_xml<float, 3>(doc, restored, "Tensor", 37,
+                                        "property", true, 9);
+    else
+      iganet::utils::from_xml<double, 3>(doc, restored, "Tensor", 37,
+                                         "property", true, 9);
+
+    EXPECT_TRUE(torch::equal(restored, source));
+    EXPECT_EQ(restored.sizes(), source.sizes());
+    EXPECT_EQ(restored.scalar_type(), source.scalar_type());
+  }
+}
