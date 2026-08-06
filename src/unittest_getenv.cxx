@@ -33,3 +33,14 @@ TEST(Getenv, DefaultsAndTypedParsing) {
   unsetenv("IGANET_UNITTEST_REAL");
   unsetenv("IGANET_UNITTEST_LIST");
 }
+
+TEST(Getenv, ParsesStringAndFloatingPointLists) {
+  setenv("IGANET_UNITTEST_STRING_LIST", "cpu,cuda,mps", 1);
+  setenv("IGANET_UNITTEST_REAL_LIST", "1.25,-2.5,0", 1);
+  EXPECT_EQ(iganet::utils::getenv<std::string>("IGANET_UNITTEST_STRING_LIST", {}),
+            (std::vector<std::string>{"cpu", "cuda", "mps"}));
+  EXPECT_EQ(iganet::utils::getenv<double>("IGANET_UNITTEST_REAL_LIST", {}),
+            (std::vector<double>{1.25, -2.5, 0.0}));
+  unsetenv("IGANET_UNITTEST_STRING_LIST");
+  unsetenv("IGANET_UNITTEST_REAL_LIST");
+}

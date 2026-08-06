@@ -31,3 +31,12 @@ TEST(FullQualifiedName, ReportsDynamicTypeAndPrettyPrints) {
   object.pretty_print(stream);
   EXPECT_EQ(stream.str(), object.name());
 }
+
+TEST(FullQualifiedName, WorksThroughBaseReference) {
+  Named object;
+  const iganet::utils::FullQualifiedName &base = object;
+  EXPECT_NE(base.name().find("Named"), std::string::npos);
+  std::ostringstream stream;
+  base.pretty_print(stream);
+  EXPECT_EQ(stream.str(), base.name());
+}

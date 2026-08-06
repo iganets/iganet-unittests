@@ -46,3 +46,26 @@ TEST(Solver, HandlesZeroRightHandSideAndIterationLimit) {
   EXPECT_EQ(iterations, 0);
   EXPECT_GT(residual, 0.0);
 }
+
+TEST(Solver, BiCgStabHandlesZeroRightHandSideAndIterationLimit) {
+  auto A = torch::eye(3, torch::kFloat64);
+  auto zero = torch::zeros(3, torch::kFloat64);
+  auto [x0, iteration0, residual0] =
+      iganet::utils::solve_bicgstab(A, zero);
+  EXPECT_TRUE(torch::equal(x0, zero));
+  EXPECT_EQ(iteration0, -1);
+  EXPECT_DOUBLE_EQ(residual0, 0.0);
+
+  auto [x, iterations, residual] = iganet::utils::solve_bicgstab(
+      A, torch::ones(3, torch::kFloat64), 0);
+  EXPECT_EQ(iterations, 0);
+  EXPECT_GT(residual, 0.0);
+}
+
+TEST(Solver, SupportsFloatInputsAndLargerSystems) {
+  auto A = torch::diag(torch::tensor({1.f, 2.f, 4.f, 8.f}));
+  auto b = torch::tensor({1.f, 2.f, 4.f, 8.f});
+  auto [x, iterations, residual] = iganet::utils::solve_cg(A, b, 20, 1e-5);
+  EXPECT_TRUE(torch::allclose(x, torch::ones(4), 1e-4, 1e-4));
+  EXPECT_LT(residual, 1e-5);
+}

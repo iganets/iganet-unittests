@@ -64,3 +64,25 @@ TEST(Container, AppendAndPrepend) {
   EXPECT_EQ((std::vector<int>{1, 2} + 3), (std::vector{1, 2, 3}));
   EXPECT_EQ((0 + std::vector<int>{1, 2}), (std::vector{0, 1, 2}));
 }
+
+TEST(Container, ArrayRefAndInitializerListOverloads) {
+  std::array<int64_t, 2> sizes{2, 3};
+  auto ref = to_ArrayRef(sizes);
+  EXPECT_EQ(ref.size(), 2);
+  EXPECT_EQ(ref[1], 3);
+  EXPECT_EQ(ref + int64_t{4}, (std::vector<int64_t>{2, 3, 4}));
+  EXPECT_EQ(int64_t{1} + ref, (std::vector<int64_t>{1, 2, 3}));
+
+  std::initializer_list<double> values{1., 2., 3.};
+  auto tensor = to_tensor(values, iganet::Options<double>{});
+  EXPECT_TRUE(torch::equal(tensor, torch::tensor({1., 2., 3.})));
+}
+
+TEST(Container, ConstAndMoveConcatenationOverloads) {
+  const std::array<int, 2> a{1, 2};
+  const std::array<int, 1> b{3};
+  EXPECT_EQ(concat(a, b), (std::array{1, 2, 3}));
+  const std::vector<int> x{1, 2};
+  const std::vector<double> y{3.5};
+  EXPECT_EQ(concat(x, y), (std::vector<double>{1., 2., 3.5}));
+}

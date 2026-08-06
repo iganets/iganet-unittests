@@ -226,6 +226,86 @@ TEST(BlockTensor, BlockTensor_ops) {
   test_binary_op(xlogy, A, B);
 }
 
+TEST(BlockTensor, MetadataStorageAndFormatting) {
+  using BT = iganet::utils::BlockTensor<torch::Tensor, 2, 2>;
+  static_assert(BT::dims() == std::array<std::size_t, 2>{2, 2});
+  static_assert(BT::dim<0>() == 2);
+  static_assert(BT::dim<2>() == 0);
+  static_assert(BT::size() == 2);
+  static_assert(BT::entries() == 4);
+
+  auto shared = std::make_shared<torch::Tensor>(torch::tensor(1.));
+  auto *shared_raw = shared.get();
+  BT tensor(shared, torch::tensor(2.), torch::tensor(3.), torch::tensor(4.));
+  EXPECT_EQ(tensor[0].get(), shared_raw);
+  EXPECT_DOUBLE_EQ(tensor(0, 1).item<double>(), 2.0);
+  tensor.set(1, 0, torch::tensor(8.));
+  tensor.set(3, torch::tensor(9.));
+  EXPECT_DOUBLE_EQ(tensor(1, 0).item<double>(), 8.0);
+  EXPECT_DOUBLE_EQ(tensor(1, 1).item<double>(), 9.0);
+
+  std::ostringstream stream;
+  stream << tensor;
+  EXPECT_NE(stream.str().find("[1,1]"), std::string::npos);
+}
+
+TEST(BlockTensor, DeterminantTraceNormNormalizeAndDot) {
+  using BT = iganet::utils::BlockTensor<torch::Tensor, 2, 2>;
+  BT matrix(torch::tensor(1.), torch::tensor(2.), torch::tensor(3.),
+            torch::tensor(4.));
+  EXPECT_DOUBLE_EQ(matrix.det().item<double>(), -2.0);
+  EXPECT_DOUBLE_EQ(matrix.trace()(0, 0).item<double>(), 5.0);
+  EXPECT_NEAR(matrix.norm()(0, 0).item<double>(), std::sqrt(30.0), 1e-6);
+  auto normalized = matrix.normalize();
+  EXPECT_NEAR(normalized.norm()(0, 0).item<double>(), 1.0, 1e-6);
+  EXPECT_DOUBLE_EQ(matrix.dot(matrix)(0, 0).item<double>(), 30.0);
+  EXPECT_DOUBLE_EQ(iganet::utils::dot(matrix, matrix)(0, 0).item<double>(),
+                   30.0);
+}
+
+TEST(BlockTensor, GeneralizedInverseAndCompoundScalarOperators) {
+  iganet::utils::BlockTensor<torch::Tensor, 2, 1> column(torch::tensor(3.),
+                                                        torch::tensor(4.));
+  auto inverse = column.ginv();
+  EXPECT_NEAR(inverse(0, 0).item<double>(), 0.12, 1e-6);
+  EXPECT_NEAR(inverse(0, 1).item<double>(), 0.16, 1e-6);
+  EXPECT_EQ(column.ginvtr(), inverse.tr());
+
+  auto original = column;
+  column += original;
+  column -= 1.0;
+  auto scaled = column * torch::tensor(2.0);
+  EXPECT_DOUBLE_EQ(scaled(0, 0).item<double>(), 10.0);
+  EXPECT_DOUBLE_EQ(scaled(1, 0).item<double>(), 14.0);
+  EXPECT_NE(column, original);
+}
+
+TEST(BlockTensor, RankThreeIndexSliceReorderAndMultiplication) {
+  using BT3 = iganet::utils::BlockTensor<torch::Tensor, 2, 2, 2>;
+  BT3 tensor(torch::tensor(0.), torch::tensor(1.), torch::tensor(2.),
+             torch::tensor(3.), torch::tensor(4.), torch::tensor(5.),
+             torch::tensor(6.), torch::tensor(7.));
+  EXPECT_EQ(BT3::rows(), 2);
+  EXPECT_EQ(BT3::cols(), 2);
+  EXPECT_EQ(BT3::slices(), 2);
+  EXPECT_DOUBLE_EQ(tensor(1, 0, 1).item<double>(), 6.0);
+  tensor.set(1, 0, 1, torch::tensor(9.));
+  EXPECT_DOUBLE_EQ(tensor.slice(1)(1, 0).item<double>(), 9.0);
+  EXPECT_DOUBLE_EQ(tensor.reorder_ikj()(1, 1, 0).item<double>(),
+                   tensor(1, 0, 1).item<double>());
+  EXPECT_DOUBLE_EQ(tensor.reorder_jik()(0, 1, 1).item<double>(),
+                   tensor(1, 0, 1).item<double>());
+  EXPECT_DOUBLE_EQ(tensor.reorder_kji()(1, 0, 1).item<double>(),
+                   tensor(1, 0, 1).item<double>());
+  EXPECT_DOUBLE_EQ(tensor.reorder_kij()(1, 1, 0).item<double>(),
+                   tensor(1, 0, 1).item<double>());
+
+  iganet::utils::BlockTensor<torch::Tensor, 1, 2> left(torch::tensor(1.),
+                                                       torch::tensor(2.));
+  auto left_product = left * tensor;
+  EXPECT_DOUBLE_EQ(left_product(0, 0, 0).item<double>(), 4.0);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   iganet::init();

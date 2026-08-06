@@ -39,3 +39,21 @@ TEST(Linalg, PartialArrayReductions) {
   EXPECT_EQ(iganet::utils::sum(values), 17);
   EXPECT_EQ(iganet::utils::sum(values, 1, 2), 8);
 }
+
+TEST(Linalg, DirectionalAndVariadicKroneckerProducts) {
+  auto a = torch::tensor({{1., 2.}, {3., 4.}});
+  auto b = torch::tensor({{5., 6.}, {7., 8.}});
+  auto along_rows = iganet::utils::kronproduct<0>(a, b);
+  auto along_cols = iganet::utils::kronproduct<1>(a, b);
+  EXPECT_EQ(along_rows.sizes(), (torch::IntArrayRef{4, 2}));
+  EXPECT_EQ(along_cols.sizes(), (torch::IntArrayRef{2, 4}));
+  EXPECT_TRUE(torch::equal(iganet::utils::kronproduct(
+                               torch::tensor({1., 2.}), torch::tensor({3., 4.}),
+                               torch::tensor({5., 6.})),
+                           torch::tensor({15., 18., 20., 24., 30., 36., 40., 48.})));
+}
+
+TEST(Linalg, RejectsUnsupportedTensorRank) {
+  auto a = torch::ones({1, 1, 1, 1, 1, 1, 1, 1, 1});
+  EXPECT_THROW(iganet::utils::kronproduct(a, a), std::runtime_error);
+}

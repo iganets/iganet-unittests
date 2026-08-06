@@ -33,3 +33,34 @@ TEST(VSlice, MultiDimensionalWithLeadingDimension) {
   EXPECT_TRUE(torch::equal(iganet::utils::VSlice<true>(index, start, stop, leading),
                            torch::tensor({3, 4, 6, 7})));
 }
+
+TEST(VSlice, ThreeDimensionsAndMultipleIndices) {
+  auto index = iganet::utils::to_tensorArray({0LL, 10LL}, {1LL, 11LL},
+                                              {2LL, 12LL});
+  std::array<int64_t, 3> start{0, 0, 0};
+  std::array<int64_t, 3> stop{2, 2, 2};
+  std::array<int64_t, 2> leading{2, 4};
+  auto result = iganet::utils::VSlice(index, start, stop, leading);
+  std::vector<int64_t> expected;
+  for (int64_t k = 0; k < 2; ++k)
+    for (int64_t j = 0; j < 2; ++j)
+      for (int64_t i = 0; i < 2; ++i) {
+        expected.push_back(18 + i + 2 * j + 8 * k);
+        expected.push_back(128 + i + 2 * j + 8 * k);
+      }
+  EXPECT_TRUE(torch::equal(std::get<0>(torch::sort(result)),
+                           std::get<0>(torch::sort(torch::tensor(expected)))));
+
+  auto transposed = iganet::utils::VSlice<true>(index, start, stop, leading);
+  EXPECT_EQ(transposed.numel(), result.numel());
+  EXPECT_TRUE(torch::equal(std::get<0>(torch::sort(transposed)),
+                           std::get<0>(torch::sort(result))));
+}
+
+TEST(VSlice, UsesDefaultLeadingDimension) {
+  auto index = iganet::utils::to_tensorArray({1LL}, {2LL});
+  EXPECT_TRUE(torch::equal(
+      iganet::utils::VSlice(index, std::array<int64_t, 2>{0, 0},
+                            std::array<int64_t, 2>{1, 1}),
+      torch::tensor({3})));
+}

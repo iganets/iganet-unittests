@@ -36,3 +36,23 @@ TEST(Zip, SupportsPostIncrement) {
   EXPECT_EQ(std::get<0>(*previous), 1);
   EXPECT_EQ(std::get<0>(*iterator), 2);
 }
+
+TEST(Zip, SupportsConstThreeWayAndEmptySequences) {
+  const std::vector<int> a{1, 2};
+  const std::array<char, 2> b{'a', 'b'};
+  const std::vector<double> c{1.5, 2.5};
+  int count = 0;
+  for (auto [number, letter, real] : iganet::utils::zip(a, b, c)) {
+    EXPECT_EQ(number, count + 1);
+    EXPECT_EQ(letter, count == 0 ? 'a' : 'b');
+    EXPECT_DOUBLE_EQ(real, count + 1.5);
+    ++count;
+  }
+  EXPECT_EQ(count, 2);
+
+  std::vector<int> empty;
+  std::vector<int> also_empty;
+  EXPECT_EQ(iganet::utils::zip(empty, also_empty).begin() !=
+                iganet::utils::zip(empty, also_empty).end(),
+            false);
+}

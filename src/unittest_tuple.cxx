@@ -43,3 +43,29 @@ TEST(Tuple, SlicesTensorIntoTuple) {
   EXPECT_TRUE(torch::equal(std::get<0>(tuple), torch::tensor({1., 2.})));
   EXPECT_TRUE(torch::equal(std::get<1>(tuple), torch::tensor({3.})));
 }
+
+TEST(Tuple, EmptyConcatenationAndExplicitOffsetSlicing) {
+  static_assert(std::is_same_v<iganet::utils::tuple_cat_t<>, std::tuple<>>);
+  auto tuple = std::make_tuple(torch::zeros(1), torch::zeros(2));
+  int64_t offset = 1;
+  iganet::utils::slice_tensor_into_tuple(
+      tuple, torch::tensor({9., 1., 2., 3.}),
+      [](const auto &t) { return t.numel(); },
+      [](auto &target, const auto &slice) { target = slice.clone(); }, offset,
+      0);
+  EXPECT_EQ(offset, 4);
+  EXPECT_TRUE(torch::equal(std::get<0>(tuple), torch::tensor({1.})));
+  EXPECT_TRUE(torch::equal(std::get<1>(tuple), torch::tensor({2., 3.})));
+}
+
+TEST(Tuple, ConcatenatesAndSlicesAlongNonzeroDimension) {
+  auto tuple = std::make_tuple(torch::zeros({2, 1}), torch::zeros({2, 2}));
+  auto source = torch::tensor({{1., 2., 3.}, {4., 5., 6.}});
+  iganet::utils::slice_tensor_into_tuple(
+      tuple, source, [](const auto &t) { return t.size(1); },
+      [](auto &target, const auto &slice) { target = slice.clone(); }, 1);
+  EXPECT_TRUE(torch::equal(std::get<0>(tuple),
+                           torch::tensor({{1.}, {4.}})));
+  EXPECT_TRUE(torch::equal(std::get<1>(tuple),
+                           torch::tensor({{2., 3.}, {5., 6.}})));
+}
