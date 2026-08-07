@@ -51,7 +51,9 @@ TEST(Solver, BiCgStabSupportsSparseCsrMatrices) {
   auto invalid_values = A.values().clone();
   invalid_values.index_put_({0}, std::numeric_limits<double>::infinity());
   auto invalid = torch::sparse_csr_tensor(A.crow_indices(), A.col_indices(),
-                                          invalid_values, A.sizes());
+                                          invalid_values, A.sizes(),
+                                          invalid_values.options().layout(
+                                              torch::kSparseCsr));
   EXPECT_THROW((void)iganet::utils::solve_bicgstab(invalid, b), c10::Error);
 }
 
