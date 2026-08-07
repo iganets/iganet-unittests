@@ -35,6 +35,26 @@ TEST(Solver, BiCgStabSolvesNonsymmetricSystem) {
   EXPECT_LT(residual, 1e-12);
 }
 
+TEST(Solver, BiCgStabSupportsSparseCsrMatrices) {
+  auto dense = torch::tensor({{4., 1.}, {2., 3.}}, torch::kFloat64);
+  auto A = dense.to_sparse_csr();
+  auto b = torch::tensor({1., 2.}, torch::kFloat64);
+
+  auto [x, iterations, residual] =
+      iganet::utils::solve_bicgstab(A, b, 20, 1e-12);
+
+  EXPECT_TRUE(torch::allclose(
+      x, torch::tensor({0.1, 0.6}, torch::kFloat64), 1e-10, 1e-10));
+  EXPECT_GE(iterations, 0);
+  EXPECT_LT(residual, 1e-12);
+
+  auto invalid_values = A.values().clone();
+  invalid_values.index_put_({0}, std::numeric_limits<double>::infinity());
+  auto invalid = torch::sparse_csr_tensor(A.crow_indices(), A.col_indices(),
+                                          invalid_values, A.sizes());
+  EXPECT_THROW((void)iganet::utils::solve_bicgstab(invalid, b), c10::Error);
+}
+
 TEST(Solver, HandlesZeroRightHandSideAndIterationLimit) {
   auto A = torch::eye(2, torch::kFloat64);
   auto zero = torch::zeros(2, torch::kFloat64);
