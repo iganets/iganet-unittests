@@ -15,6 +15,8 @@
 #include <iganet.h>
 #include <gtest/gtest.h>
 
+#include <limits>
+
 TEST(Solver, ConjugateGradientSolvesSpdSystem) {
   auto A = torch::tensor({{4., 1.}, {1., 3.}}, torch::kFloat64);
   auto b = torch::tensor({1., 2.}, torch::kFloat64);
@@ -68,4 +70,37 @@ TEST(Solver, SupportsFloatInputsAndLargerSystems) {
   auto [x, iterations, residual] = iganet::utils::solve_cg(A, b, 20, 1e-5);
   EXPECT_TRUE(torch::allclose(x, torch::ones(4), 1e-4, 1e-4));
   EXPECT_LT(residual, 1e-5);
+}
+
+TEST(Solver, RejectsSingularSystemsOnNumericalBreakdown) {
+  auto singular = torch::zeros({2, 2}, torch::kFloat64);
+  auto b = torch::ones(2, torch::kFloat64);
+  EXPECT_THROW((void)iganet::utils::solve_cg(singular, b), c10::Error);
+  EXPECT_THROW((void)iganet::utils::solve_bicgstab(singular, b), c10::Error);
+}
+
+TEST(Solver, RejectsNanAndInfiniteInputs) {
+  auto identity = torch::eye(2, torch::kFloat64);
+  auto finite_b = torch::ones(2, torch::kFloat64);
+
+  auto nan_matrix = identity.clone();
+  nan_matrix.index_put_({0, 0}, std::numeric_limits<double>::quiet_NaN());
+  EXPECT_THROW((void)iganet::utils::solve_cg(nan_matrix, finite_b), c10::Error);
+
+  auto inf_b = finite_b.clone();
+  inf_b.index_put_({1}, std::numeric_limits<double>::infinity());
+  EXPECT_THROW((void)iganet::utils::solve_bicgstab(identity, inf_b),
+               c10::Error);
+}
+
+TEST(Solver, RejectsInvalidShapesAndParameters) {
+  auto identity = torch::eye(2, torch::kFloat64);
+  auto b = torch::ones(2, torch::kFloat64);
+  EXPECT_THROW((void)iganet::utils::solve_cg(torch::ones({2, 3}), b),
+               c10::Error);
+  EXPECT_THROW((void)iganet::utils::solve_bicgstab(identity, torch::ones(3)),
+               c10::Error);
+  EXPECT_THROW((void)iganet::utils::solve_cg(identity, b, -1), c10::Error);
+  EXPECT_THROW((void)iganet::utils::solve_bicgstab(identity, b, 10, 0.0),
+               c10::Error);
 }

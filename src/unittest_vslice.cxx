@@ -64,3 +64,31 @@ TEST(VSlice, UsesDefaultLeadingDimension) {
                             std::array<int64_t, 2>{1, 1}),
       torch::tensor({3})));
 }
+
+TEST(VSlice, RejectsInvalidOneDimensionalRanges) {
+  auto index = torch::tensor({0, 1}, torch::kInt64);
+  EXPECT_THROW((void)iganet::utils::VSlice(index, 2, 2),
+               std::invalid_argument);
+  EXPECT_THROW((void)iganet::utils::VSlice(index, 3, 1),
+               std::invalid_argument);
+  EXPECT_THROW((void)iganet::utils::VSlice<true>(index, 0, -1),
+               std::invalid_argument);
+}
+
+TEST(VSlice, RejectsInvalidMultidimensionalArguments) {
+  auto unequal = iganet::utils::to_tensorArray({0LL, 1LL}, {2LL});
+  std::array<int64_t, 2> start{0, 0};
+  std::array<int64_t, 2> stop{1, 1};
+  EXPECT_THROW((void)iganet::utils::VSlice(unequal, start, stop),
+               std::invalid_argument);
+
+  auto index = iganet::utils::to_tensorArray({0LL}, {1LL});
+  EXPECT_THROW((void)iganet::utils::VSlice(
+                   index, std::array<int64_t, 2>{0, 2},
+                   std::array<int64_t, 2>{1, 2}),
+               std::invalid_argument);
+  EXPECT_THROW((void)iganet::utils::VSlice<true>(
+                   index, std::array<int64_t, 2>{2, 0},
+                   std::array<int64_t, 2>{1, 1}),
+               std::invalid_argument);
+}

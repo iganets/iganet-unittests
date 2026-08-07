@@ -372,6 +372,25 @@ TEST(BlockTensorProperties, ReorderFollowedByInverseRestoresRankThreeTensor) {
   EXPECT_EQ(tensor.reorder_kij().reorder_kij().reorder_kij(), tensor);
 }
 
+#ifndef NDEBUG
+TEST(BlockTensorDeathTest, RejectsOutOfRangeIndicesAndSlices) {
+  GTEST_FLAG_SET(death_test_style, "threadsafe");
+  using BT = iganet::utils::BlockTensor<torch::Tensor, 2, 2, 2>;
+  BT tensor(torch::tensor(0.), torch::tensor(1.), torch::tensor(2.),
+            torch::tensor(3.), torch::tensor(4.), torch::tensor(5.),
+            torch::tensor(6.), torch::tensor(7.));
+
+  EXPECT_DEATH_IF_SUPPORTED((void)tensor(2, 0, 0), "");
+  EXPECT_DEATH_IF_SUPPORTED((void)tensor(0, 2, 0), "");
+  EXPECT_DEATH_IF_SUPPORTED((void)tensor(0, 0, 2), "");
+  EXPECT_DEATH_IF_SUPPORTED((void)tensor[8], "");
+  EXPECT_DEATH_IF_SUPPORTED((void)tensor.set(8, torch::tensor(9.)), "");
+  EXPECT_DEATH_IF_SUPPORTED((void)tensor.slice(2), "");
+  EXPECT_DEATH_IF_SUPPORTED(
+      (void)tensor.set(0, 0, 2, torch::tensor(9.)), "");
+}
+#endif
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   iganet::init();

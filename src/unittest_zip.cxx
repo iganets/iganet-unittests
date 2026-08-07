@@ -56,3 +56,14 @@ TEST(Zip, SupportsConstThreeWayAndEmptySequences) {
                 iganet::utils::zip(empty, also_empty).end(),
             false);
 }
+
+TEST(Zip, RejectsUnequalLengthRanges) {
+  std::vector<int> short_range{1, 2};
+  std::vector<int> long_range{3, 4, 5};
+  EXPECT_THROW((void)iganet::utils::zip(short_range, long_range),
+               std::invalid_argument);
+
+  std::vector<int> empty;
+  EXPECT_THROW((void)iganet::utils::zip(empty, short_range),
+               std::invalid_argument);
+}
