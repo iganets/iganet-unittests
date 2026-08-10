@@ -21,8 +21,10 @@ TEST(Creator, IntervalMapsControlPointsIntoRequestedBounds) {
   iganet::UniformBSpline<double, 1, 1> spline({2});
   iganet::IntervalCreator<double> creator(2.0, 2.0, 5.0, 5.0);
   EXPECT_EQ(&creator.next(spline), &spline);
-  EXPECT_TRUE(torch::allclose(spline.coeffs(0),
-                              torch::tensor({2., 5.}, torch::kFloat64)));
+  const auto coeffs = spline.coeffs(0);
+EXPECT_TRUE(torch::allclose(
+    coeffs,
+    torch::tensor({2., 5.}, coeffs.options())));
   std::ostringstream stream;
   stream << creator;
   EXPECT_NE(stream.str().find("x0min = 2"), std::string::npos);
