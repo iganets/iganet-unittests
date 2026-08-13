@@ -74,6 +74,57 @@ TEST_F(BSplineTest, CreateUniformBSplineRejectsNonUniformData) {
       std::runtime_error);
 }
 
+TEST_F(BSplineTest, CreateUniformBSplineJitLifetimeAndRecovery) {
+  using patch_type = iganet::BSplinePatch<real_t, 2, 2>;
+  using first_type = iganet::UniformBSpline<real_t, 2, 2, 3>;
+  using second_type = iganet::UniformBSpline<real_t, 2, 1, 2>;
+  first_type first({4, 5}, iganet::init::greville, options);
+  second_type second({3, 4}, iganet::init::greville, options);
+  const auto firstXml = first.to_xml(7, "first", 1);
+  const auto secondXml = second.to_xml(8, "second", 2);
+
+  std::vector<std::shared_ptr<patch_type>> patches;
+  patches.push_back(iganet::createUniformBSpline<real_t, 2, 2>(
+      firstXml, 7, "first", 1, options));
+  patches.push_back(
+      iganet::createUniformBSpline<real_t, 2, 2>(second.to_json(), options));
+  patches.push_back(
+      iganet::createUniformBSpline<real_t, 2, 2>(first.to_json(), options));
+  patches.push_back(iganet::createUniformBSpline<real_t, 2, 2>(
+      secondXml.child("xml"), 8, "second", 2, options));
+
+  EXPECT_TRUE(
+      torch::allclose(patches[0]->as_tensor(), first.as_tensor(), 1e-5, 1e-6));
+  EXPECT_TRUE(
+      torch::allclose(patches[1]->as_tensor(), second.as_tensor(), 1e-5, 1e-6));
+  EXPECT_TRUE(
+      torch::allclose(patches[2]->as_tensor(), first.as_tensor(), 1e-5, 1e-6));
+  EXPECT_TRUE(
+      torch::allclose(patches[3]->as_tensor(), second.as_tensor(), 1e-5, 1e-6));
+
+  // Destroy patches backed by the two cached JIT libraries out of order.
+  patches.erase(patches.begin() + 1);
+  EXPECT_TRUE(torch::allclose(patches.back()->as_tensor(), second.as_tensor(),
+                              1e-5, 1e-6));
+  patches.erase(patches.begin());
+  EXPECT_EQ(patches.front()->to_json(), first.to_json());
+  patches.clear();
+
+  pugi::xml_document malformedXml;
+  ASSERT_TRUE(malformedXml.load_string("<xml><Geometry/></xml>"));
+  EXPECT_THROW((iganet::createUniformBSpline<real_t, 2, 2>(malformedXml)),
+               std::runtime_error);
+  auto malformedJson = first.to_json();
+  malformedJson["ncoeffs"][0] = 0;
+  EXPECT_THROW((iganet::createUniformBSpline<real_t, 2, 2>(malformedJson)),
+               std::runtime_error);
+
+  // A failed load must not poison the cached library or later creations.
+  const auto recovered =
+      iganet::createUniformBSpline<real_t, 2, 2>(first.to_json(), options);
+  EXPECT_EQ(recovered->to_json(), first.to_json());
+}
+
 TEST_F(BSplineTest, UniformBSpline_parDim1_geoDim1_degrees1) {
   for (iganet::short_t n0 = 0; n0 < 2; n0++)
     EXPECT_THROW((iganet::UniformBSpline<real_t, 1, 1>({n0})),
