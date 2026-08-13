@@ -22,22 +22,26 @@ TEST(TensorArray, ConstructsWithShapesOptionsAndAccessors) {
   auto tensors = iganet::utils::to_tensorArray(shape, {1., 2., 3., 4.},
                                                 {5., 6., 7., 8.});
   ASSERT_EQ(tensors.size(), 2);
-  EXPECT_EQ(tensors[0].sizes(), (torch::IntArrayRef{2, 2}));
-  auto accessors = iganet::utils::to_tensorAccessor<double, 2>(tensors);
+  EXPECT_EQ(tensors[0].sizes(), (torch::IntArrayRef{2, 2}));  
+  auto [owned_tensors, accessors] =
+      iganet::utils::to_tensorAccessor<double, 2>(tensors, torch::kCPU);
   EXPECT_DOUBLE_EQ(accessors[0][1][0], 3.0);
   EXPECT_DOUBLE_EQ(accessors[1][0][1], 6.0);
-
-  auto [owned, accessor] =
-      iganet::utils::to_tensorAccessor<double, 2>(tensors[0], torch::kCPU);
+  auto [owned_tensor, accessor] =
+       iganet::utils::to_tensorAccessor<double, 2>(tensors[0], torch::kCPU);
   EXPECT_DOUBLE_EQ(accessor[1][1], 4.0);
-  EXPECT_TRUE(torch::equal(owned, tensors[0]));
+  EXPECT_TRUE(torch::equal(owned_tensor, owned_tensors[0]));
 }
 
 TEST(TensorArray, AppliesOperationToEveryTensorAndPrints) {
   auto tensors = iganet::utils::to_tensorArray({-1., 2.}, {-3., 4.});
   auto absolute = TENSORARRAY_FORALL(tensors, abs);
-  EXPECT_TRUE(torch::equal(absolute[0], torch::tensor({1., 2.})));
-  EXPECT_TRUE(torch::equal(absolute[1], torch::tensor({3., 4.})));
+  EXPECT_TRUE(torch::equal(
+    absolute[0],
+    torch::tensor({1., 2.}, absolute[0].options())));
+  EXPECT_TRUE(torch::equal(
+    absolute[1],
+    torch::tensor({3., 4.}, absolute[1].options())));
   std::ostringstream stream;
   stream << tensors;
   EXPECT_FALSE(stream.str().empty());

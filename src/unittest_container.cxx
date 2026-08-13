@@ -31,7 +31,9 @@ TEST(Container, TensorConversionOwnsDataAndReshapes) {
   std::vector<double> values{1, 2, 3, 4};
   auto tensor = to_tensor(values, {2, 2});
   values[0] = 99;
-  EXPECT_TRUE(torch::equal(tensor, torch::tensor({{1., 2.}, {3., 4.}})));
+  EXPECT_TRUE(torch::equal(
+    tensor,
+    torch::tensor({{1., 2.}, {3., 4.}}, tensor.options())));
   EXPECT_EQ(tensor.scalar_type(), torch::kFloat64);
 
   auto grad = to_tensor(std::array<float, 2>{1, 2},
@@ -75,7 +77,9 @@ TEST(Container, ArrayRefAndInitializerListOverloads) {
 
   std::initializer_list<double> values{1., 2., 3.};
   auto tensor = to_tensor(values, iganet::Options<double>{});
-  EXPECT_TRUE(torch::equal(tensor, torch::tensor({1., 2., 3.})));
+  EXPECT_TRUE(torch::equal(
+    tensor,
+    torch::tensor({1., 2., 3.}, tensor.options())));
 }
 
 TEST(Container, ConstAndMoveConcatenationOverloads) {
