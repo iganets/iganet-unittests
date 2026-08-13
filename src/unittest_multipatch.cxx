@@ -12,8 +12,10 @@
    file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <iganet.h>
+#include <sstream>
 
 namespace {
 struct PatchValue {
@@ -183,6 +185,145 @@ TEST(MultiPatch, SerializesAndRestoresJson) {
   ASSERT_EQ(restored.ninterfaces(), 1);
   EXPECT_EQ(restored.interface(0).firstSide(), iganet::north);
   EXPECT_EQ(restored.interface(0).secondSide(), iganet::south);
+}
+
+TEST(MultiPatch, CreatesUniformAndNonUniformPatchesFromXmlWhenEmpty) {
+  using patch_type = iganet::BSplinePatch<double, 2, 2>;
+  using uniform_type = iganet::UniformBSpline<double, 2, 1, 2>;
+  using nonuniform_type = iganet::NonUniformBSpline<double, 2, 1, 2>;
+  const auto options =
+      iganet::Options<double>{}.device(torch::kCPU).requires_grad(false);
+
+  auto uniform = std::make_shared<uniform_type>(
+      std::array<int64_t, 2>{3, 4}, iganet::init::greville, options);
+  auto nonuniform = std::make_shared<nonuniform_type>(
+      std::array<std::vector<double>, 2>{
+          std::vector<double>{0.0, 0.0, 0.4, 1.0, 1.0},
+          std::vector<double>{0.0, 0.0, 0.0, 0.3, 1.0, 1.0, 1.0}},
+      iganet::init::greville, options);
+
+  iganet::MultiPatch<patch_type> source;
+  source.addPatch(uniform);
+  source.addPatch(nonuniform);
+  source.addInterface(0, iganet::east, 1, iganet::west);
+  const auto document = source.to_xml(11, "mixed", 4);
+
+  iganet::MultiPatch<patch_type> restored;
+  EXPECT_EQ(&restored.from_xml(document, 11, "mixed", 4, options), &restored);
+  ASSERT_EQ(restored.npatches(), 2);
+  ASSERT_EQ(restored.ninterfaces(), 1);
+  EXPECT_TRUE(torch::allclose(restored.patch(0).as_tensor(),
+                              uniform->as_tensor(), 1e-5, 1e-6));
+  EXPECT_TRUE(torch::allclose(restored.patch(1).as_tensor(),
+                              nonuniform->as_tensor(), 1e-5, 1e-6));
+  EXPECT_EQ(restored.patch(0).to_json()["knots"], uniform->to_json()["knots"]);
+  EXPECT_EQ(restored.patch(1).to_json()["knots"],
+            nonuniform->to_json()["knots"]);
+  EXPECT_EQ(restored.patch(0).requires_grad(), false);
+  EXPECT_EQ(restored.patch(1).requires_grad(), false);
+  EXPECT_EQ(&restored.interface(0).firstPatch(), &restored.patch(0));
+  EXPECT_EQ(restored.interface(0).firstSide(), iganet::east);
+  EXPECT_EQ(&restored.interface(0).secondPatch(), &restored.patch(1));
+  EXPECT_EQ(restored.interface(0).secondSide(), iganet::west);
+}
+
+TEST(MultiPatch, CreatesUniformAndNonUniformPatchesFromJsonWhenEmpty) {
+  using patch_type = iganet::BSplinePatch<double, 2, 2>;
+  using uniform_type = iganet::UniformBSpline<double, 2, 2, 1>;
+  using nonuniform_type = iganet::NonUniformBSpline<double, 2, 2, 1>;
+  const auto options =
+      iganet::Options<double>{}.device(torch::kCPU).requires_grad(false);
+
+  iganet::MultiPatch<patch_type> source;
+  source.addPatch(std::make_shared<uniform_type>(
+      std::array<int64_t, 2>{4, 3}, iganet::init::greville, options));
+  source.addPatch(std::make_shared<nonuniform_type>(
+      std::array<std::vector<double>, 2>{
+          std::vector<double>{0.0, 0.0, 0.0, 0.2, 1.0, 1.0, 1.0},
+          std::vector<double>{0.0, 0.0, 0.6, 1.0, 1.0}},
+      iganet::init::greville, options));
+  source.addInterface(0, iganet::north, 1, iganet::south);
+  const auto json = source.to_json();
+
+  iganet::MultiPatch<patch_type> restored;
+  EXPECT_EQ(&restored.from_json(json, options), &restored);
+  ASSERT_EQ(restored.npatches(), 2);
+  ASSERT_EQ(restored.ninterfaces(), 1);
+  EXPECT_EQ(restored.patch(0).to_json(), source.patch(0).to_json());
+  EXPECT_EQ(restored.patch(1).to_json(), source.patch(1).to_json());
+  EXPECT_EQ(restored.patch(0).requires_grad(), false);
+  EXPECT_EQ(restored.patch(1).requires_grad(), false);
+  EXPECT_EQ(restored.interface(0).firstSide(), iganet::north);
+  EXPECT_EQ(restored.interface(0).secondSide(), iganet::south);
+  EXPECT_EQ(&restored.interface(0).firstPatch(), &restored.patch(0));
+  EXPECT_EQ(&restored.interface(0).secondPatch(), &restored.patch(1));
+}
+
+TEST(MultiPatch, SavesLoadsReadsAndWritesTorchArchives) {
+  using patch_type = iganet::BSplinePatch<double, 2, 2>;
+  using spline_type = iganet::UniformBSpline<double, 2, 1, 2>;
+  iganet::MultiPatch<patch_type> source;
+  source.addPatch(std::make_shared<spline_type>(std::array<int64_t, 2>{3, 4},
+                                                iganet::init::greville));
+  source.addPatch(std::make_shared<spline_type>(std::array<int64_t, 2>{4, 5},
+                                                iganet::init::greville));
+  source.addInterface(0, iganet::east, 1, iganet::west);
+
+  const auto filename =
+      (std::filesystem::temp_directory_path() / "iganet_multipatch.pt")
+          .string();
+  source.save(filename, "domain");
+  iganet::MultiPatch<patch_type> loaded;
+  loaded.load(filename, "domain");
+  EXPECT_EQ(loaded, source);
+  std::filesystem::remove(filename);
+
+  torch::serialize::OutputArchive output;
+  source.write(output, "domain");
+  const auto archiveFile =
+      (std::filesystem::temp_directory_path() / "iganet_multipatch_archive.pt")
+          .string();
+  output.save_to(archiveFile);
+  torch::serialize::InputArchive input;
+  input.load_from(archiveFile);
+  iganet::MultiPatch<patch_type> read;
+  read.read(input, "domain");
+  EXPECT_EQ(read, source);
+  std::filesystem::remove(archiveFile);
+}
+
+TEST(MultiPatch, ComparesAndPrintsPatchesAndTopology) {
+  using patch_type = iganet::BSplinePatch<double, 2, 2>;
+  using spline_type = iganet::UniformBSpline<double, 2, 1, 1>;
+  iganet::MultiPatch<patch_type> first;
+  first.addPatch(std::make_shared<spline_type>(std::array<int64_t, 2>{2, 2},
+                                               iganet::init::greville));
+  first.addPatch(std::make_shared<spline_type>(std::array<int64_t, 2>{2, 2},
+                                               iganet::init::greville));
+  first.addInterface(0, iganet::east, 1, iganet::west);
+
+  iganet::MultiPatch<patch_type> second;
+  second.from_json(first.to_json());
+  EXPECT_TRUE(first == second);
+  EXPECT_FALSE(first != second);
+  EXPECT_TRUE(first.isclose(second));
+
+  auto coefficients = second.patch(0).as_tensor().clone();
+  coefficients.flatten()[0] += 1e-7;
+  second.patch(0).from_tensor(coefficients);
+  EXPECT_FALSE(first == second);
+  EXPECT_TRUE(first != second);
+  EXPECT_TRUE(first.isclose(second, 1e-5, 1e-6));
+  EXPECT_FALSE(first.isclose(second, 0.0, 1e-9));
+
+  second.removeInterface(0);
+  EXPECT_FALSE(first.isclose(second));
+
+  std::ostringstream output;
+  output << first;
+  EXPECT_NE(output.str().find("MultiPatch("), std::string::npos);
+  EXPECT_NE(output.str().find("npatches = 2"), std::string::npos);
+  EXPECT_NE(output.str().find("interface[0]"), std::string::npos);
 }
 
 #ifndef NDEBUG
