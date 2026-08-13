@@ -31,6 +31,49 @@ protected:
   iganet::Options<real_t> options;
 };
 
+TEST_F(BSplineTest, CreateUniformBSplineFromXmlAndJson) {
+  using bspline_type = iganet::UniformBSpline<real_t, 2, 2, 3>;
+  const auto factoryOptions =
+      iganet::Options<real_t>{}.device(torch::kCPU).requires_grad(false);
+  bspline_type expected({4, 5}, iganet::init::greville, factoryOptions);
+  const auto document = expected.to_xml(5, "factory", 2);
+
+  const auto fromDocument = iganet::createUniformBSpline<real_t, 2, 2>(
+      document, 5, "factory", 2, factoryOptions);
+  const auto fromNode = iganet::createUniformBSpline<real_t, 2, 2>(
+      document.child("xml"), 5, "factory", 2, factoryOptions);
+  const auto fromJson = iganet::createUniformBSpline<real_t, 2, 2>(
+      expected.to_json(), factoryOptions);
+
+  for (const auto &created : {fromDocument, fromNode, fromJson}) {
+    EXPECT_TRUE(torch::allclose(created->as_tensor(), expected.as_tensor(),
+                                1e-5, 1e-6));
+    EXPECT_EQ(created->to_json()["degrees"], expected.to_json()["degrees"]);
+    EXPECT_EQ(created->to_json()["knots"], expected.to_json()["knots"]);
+    EXPECT_EQ(created->device(), factoryOptions.device());
+    EXPECT_EQ(created->device_index(), factoryOptions.device_index());
+    EXPECT_EQ(created->dtype(), factoryOptions.dtype());
+    EXPECT_EQ(created->layout(), factoryOptions.layout());
+    EXPECT_EQ(created->requires_grad(), factoryOptions.requires_grad());
+    EXPECT_EQ(created->pinned_memory(), factoryOptions.pinned_memory());
+    EXPECT_EQ(created->is_sparse(), factoryOptions.is_sparse());
+  }
+}
+
+TEST_F(BSplineTest, CreateUniformBSplineRejectsNonUniformData) {
+  using bspline_type = iganet::NonUniformBSpline<real_t, 2, 2, 3>;
+  bspline_type nonuniform(
+      {{{0.0_r, 0.0_r, 0.0_r, 0.4_r, 1.0_r, 1.0_r, 1.0_r},
+        {0.0_r, 0.0_r, 0.0_r, 0.0_r, 0.5_r, 1.0_r, 1.0_r, 1.0_r, 1.0_r}}});
+
+  const auto document = nonuniform.to_xml();
+  EXPECT_THROW((iganet::createUniformBSpline<real_t, 2, 2>(document)),
+               std::runtime_error);
+  EXPECT_THROW(
+      (iganet::createUniformBSpline<real_t, 2, 2>(nonuniform.to_json())),
+      std::runtime_error);
+}
+
 TEST_F(BSplineTest, UniformBSpline_parDim1_geoDim1_degrees1) {
   for (iganet::short_t n0 = 0; n0 < 2; n0++)
     EXPECT_THROW((iganet::UniformBSpline<real_t, 1, 1>({n0})),
@@ -1398,7 +1441,7 @@ TEST_F(BSplineTest, UniformBSpline_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-      doc.load_file(iganet::getDataPath("domain1d/line.xml").c_str());
+        doc.load_file(iganet::getDataPath("domain1d/line.xml").c_str());
 
     iganet::UniformBSpline<real_t, 3, 2> bspline_in(options);
     bspline_in.from_xml(doc);
@@ -1416,7 +1459,7 @@ TEST_F(BSplineTest, UniformBSpline_load_from_xml) {
   {
     pugi::xml_document doc;
     pugi::xml_parse_result result =
-      doc.load_file(iganet::getDataPath("domain2d/square.xml").c_str());
+        doc.load_file(iganet::getDataPath("domain2d/square.xml").c_str());
 
     iganet::UniformBSpline<real_t, 2, 1, 1> bspline_in(options);
     bspline_in.from_xml(doc, 1);
@@ -1429,8 +1472,8 @@ TEST_F(BSplineTest, UniformBSpline_load_from_xml) {
 
   {
     pugi::xml_document doc;
-    pugi::xml_parse_result result =
-      doc.load_file(iganet::getDataPath("domain3d/GshapedVolume.xml").c_str());
+    pugi::xml_parse_result result = doc.load_file(
+        iganet::getDataPath("domain3d/GshapedVolume.xml").c_str());
 
     iganet::UniformBSpline<real_t, 3, 2, 2, 2> bspline_in(options);
     bspline_in.from_xml(doc);
@@ -1438,8 +1481,8 @@ TEST_F(BSplineTest, UniformBSpline_load_from_xml) {
 
   {
     pugi::xml_document doc;
-    pugi::xml_parse_result result =
-      doc.load_file(iganet::getDataPath("surfaces/g_plus_s_surf.xml").c_str());
+    pugi::xml_parse_result result = doc.load_file(
+        iganet::getDataPath("surfaces/g_plus_s_surf.xml").c_str());
 
     iganet::UniformBSpline<real_t, 3, 3, 3> bspline_in0(options);
     iganet::UniformBSpline<real_t, 3, 3, 1> bspline_in1(options);
