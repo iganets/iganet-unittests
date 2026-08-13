@@ -2222,7 +2222,7 @@ TEST_F(BSplineTest, UniformBSpline_to_device) {
       EXPECT_THROW(bspline.to(torch::kHIP), c10::Error);
 
     if (at::hasMPS() && // will become torch::mps::is_available()
-        (options.dtype() != iganet::dtype<double>())) {
+        (options.dtype() != iganet::dtype_v<double>)) {
       auto bspline_mps = bspline.to(torch::kMPS);
       EXPECT_THROW((void)(bspline == bspline_mps), c10::Error);
     } else
