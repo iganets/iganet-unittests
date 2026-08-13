@@ -2141,7 +2141,7 @@ TEST_F(BoundaryTest, Boundary_to_device) {
       EXPECT_THROW(boundary.to(torch::kHIP), c10::Error);
 
     if (at::hasMPS() && // will become torch::mps::is_available()
-        (options.dtype() != iganet::dtype<double>())) {
+        (options.dtype() != iganet::dtype_v<double>)) {
       auto boundary_mps = boundary.to(torch::kMPS);
       EXPECT_THROW((void)(boundary == boundary_mps), c10::Error);
     } else
