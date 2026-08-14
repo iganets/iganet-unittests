@@ -14,7 +14,7 @@
 
 #include <filesystem>
 #include <gtest/gtest.h>
-#include <iganet.h>
+#include <iganet/iganet.h>
 #include <sstream>
 
 namespace {

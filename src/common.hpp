@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <iganet.h>
+#include <iganet/iganet.h>
 
 namespace iganet {
   std::filesystem::path getDataPath(std::string name="")

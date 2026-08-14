@@ -11,7 +11,7 @@
 */
 
 #include <common.hpp>
-#include <iganet.h>
+#include <iganet/iganet.h>
 #include <type_traits>
 #include <utility>
 

@@ -13,7 +13,7 @@
 */
 
 #include <filesystem>
-#include <iganet.h>
+#include <iganet/iganet.h>
 #include <iostream>
 
 #include <gtest/gtest.h>
