@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_optimizer.cxx
+   @file unittests/src/unittest_optimizer.cxx
 
    @brief Optimizer utility unittests
 

@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_matrix.cxx
+   @file unittests/src/unittest_matrix.cxx
 
    @brief Matrix utility unittests
 

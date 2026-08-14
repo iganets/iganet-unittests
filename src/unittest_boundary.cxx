@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_boundary.cxx
+   @file unittests/src/unittest_boundary.cxx
 
    @brief Boundary unittests
 

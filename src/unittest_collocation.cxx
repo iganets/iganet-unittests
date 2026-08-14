@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_collocation.cxx
+   @file unittests/src/unittest_collocation.cxx
 
    @brief Collocation point selection unittests
 

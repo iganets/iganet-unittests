@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_nurbs.cxx
+   @file unittests/src/unittest_nurbs.cxx
 
    @brief NURBS unittests
 

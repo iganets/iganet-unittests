@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_tensorarray.cxx
+   @file unittests/src/unittest_tensorarray.cxx
 
    @brief Tensor array utility unittests
 

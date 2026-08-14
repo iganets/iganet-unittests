@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_options.cxx
+   @file unittests/src/unittest_options.cxx
 
    @brief Options unittests
 

@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_activation.cxx
+   @file unittests/src/unittest_activation.cxx
 
    @brief Activation function unittests
 

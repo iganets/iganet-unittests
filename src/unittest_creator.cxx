@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_creator.cxx
+   @file unittests/src/unittest_creator.cxx
 
    @brief Geometry creator unittests
 

@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_core.cxx
+   @file unittests/src/unittest_core.cxx
 
    @brief Core utility unittests
 

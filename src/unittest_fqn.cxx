@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_fqn.cxx
+   @file unittests/src/unittest_fqn.cxx
 
    @brief Full qualified name utility unittests
 

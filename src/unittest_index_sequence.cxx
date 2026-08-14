@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_index_sequence.cxx
+   @file unittests/src/unittest_index_sequence.cxx
 
    @brief Index sequence utility unittests
 

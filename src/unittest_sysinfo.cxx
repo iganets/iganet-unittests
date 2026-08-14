@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_sysinfo.cxx
+   @file unittests/src/unittest_sysinfo.cxx
 
    @brief System information unittests
 

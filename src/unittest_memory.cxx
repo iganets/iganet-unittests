@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_memory.cxx
+   @file unittests/src/unittest_memory.cxx
 
    @brief Memory debugger unittests
 

@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_solver.cxx
+   @file unittests/src/unittest_solver.cxx
 
    @brief Solver utility unittests
 

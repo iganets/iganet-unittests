@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_functionspace.cxx
+   @file unittests/src/unittest_functionspace.cxx
 
    @brief Function space unittests
 

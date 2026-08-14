@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_linalg.cxx
+   @file unittests/src/unittest_linalg.cxx
 
    @brief Linear algebra utility unittests
 

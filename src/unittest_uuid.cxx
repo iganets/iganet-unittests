@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_uuid.cxx
+   @file unittests/src/unittest_uuid.cxx
 
    @brief UUID utility unittests
 

@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_uniform_bspline_eval3.cxx
+   @file unittests/src/unittest_uniform_bspline_eval3.cxx
 
    @brief B-Spline unittests
 

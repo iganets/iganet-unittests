@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_serialize.cxx
+   @file unittests/src/unittest_serialize.cxx
 
    @brief Serialization utility unittests
 

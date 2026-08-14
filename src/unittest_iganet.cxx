@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_iganet.cxx
+   @file unittests/src/unittest_iganet.cxx
 
    @brief IgANet unittests
 

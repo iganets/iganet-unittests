@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_blocktensor.cxx
+   @file unittests/src/unittest_blocktensor.cxx
 
    @brief Compile-time block-tensor unittests
 

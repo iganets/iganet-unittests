@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_igabase.cxx
+   @file unittests/src/unittest_igabase.cxx
 
    @brief Isogeometric dataset base unittests
 

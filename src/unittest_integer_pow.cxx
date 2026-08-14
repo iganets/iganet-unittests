@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_integer_pow.cxx
+   @file unittests/src/unittest_integer_pow.cxx
 
    @brief Integer power utility unittests
 

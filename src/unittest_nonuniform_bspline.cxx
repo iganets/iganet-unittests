@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_nonuniform_bspline.cxx
+   @file unittests/src/unittest_nonuniform_bspline.cxx
 
    @brief B-Spline unittests
 

@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_getenv.cxx
+   @file unittests/src/unittest_getenv.cxx
 
    @brief Environment variable utility unittests
 

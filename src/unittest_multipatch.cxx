@@ -1,5 +1,5 @@
 /**
-   @file unittests/unittest_multipatch.cxx
+   @file unittests/src/unittest_multipatch.cxx
 
    @brief Multi-patch container unittests
 
