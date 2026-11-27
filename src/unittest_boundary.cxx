@@ -18,6 +18,9 @@
 #include <iostream>
 
 #include <gtest/gtest.h>
+
+#include <type_traits>
+#include <utility>
 #include <unittest_config.hpp>
 
 using namespace iganet::unittests::literals;
@@ -2147,6 +2150,28 @@ TEST_F(BoundaryTest, Boundary_to_device) {
     } else
       EXPECT_THROW(boundary.to(torch::kMPS), c10::Error);
   }
+}
+
+TEST_F(BoundaryTest, Boundary_parDim4_sides_mutable) {
+  using BSpline = iganet::UniformBSpline<real_t, 1, 2, 3, 4, 1>;
+  iganet::Boundary<BSpline> boundary({5, 4, 7, 3}, iganet::init::greville,
+                                     options);
+  iganet::Boundary<BSpline> boundary_ref({5, 4, 7, 3}, iganet::init::greville,
+                                         options);
+
+  static_assert(
+      !std::is_const_v<std::remove_reference_t<decltype(boundary.sides())>>);
+  static_assert(std::is_const_v<std::remove_reference_t<
+                    decltype(std::as_const(boundary).sides())>>);
+
+  EXPECT_TRUE(boundary == boundary_ref);
+  std::get<0>(boundary.sides()).transform([](const std::array<real_t, 3> xi) {
+    return std::array<real_t, 1>{42.0_r};
+  });
+  EXPECT_FALSE(boundary == boundary_ref);
+  EXPECT_TRUE(torch::allclose(
+      std::get<0>(boundary.sides()).coeffs(0),
+      torch::full_like(std::get<0>(boundary_ref.sides()).coeffs(0), 42.0)));
 }
 
 int main(int argc, char **argv) {
