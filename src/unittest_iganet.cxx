@@ -692,6 +692,38 @@ TEST(BSpline, IgANet_v1_NonUniformBSpline_4d) {
   EXPECT_EQ(net.f().boundary().side<iganet::side::etime>().ncoeffs(2), 3);
 }
 
+TEST(BSpline, IgANet_inequality) {
+  using namespace iganet::literals;
+  using real_t = iganet::unittests::real_t;
+  using Optimizer = torch::optim::Adam;
+  using GeometryMap = iganet::S<iganet::UniformBSpline<real_t, 1, 5>>;
+  using Variable = iganet::S<iganet::UniformBSpline<real_t, 1, 5>>;
+  using net_type = IgANet<Optimizer, GeometryMap, Variable>;
+
+  net_type net({50, 30, 70},
+               {{iganet::activation::tanh},
+                {iganet::activation::relu},
+                {iganet::activation::sigmoid},
+                {iganet::activation::none}},
+               std::tuple(iganet::utils::to_array(6_i64)));
+  net_type other({50, 30, 70},
+                 {{iganet::activation::tanh},
+                  {iganet::activation::relu},
+                  {iganet::activation::sigmoid},
+                  {iganet::activation::none}},
+                 std::tuple(iganet::utils::to_array(6_i64)));
+  const net_type &same = net;
+
+  EXPECT_TRUE(net == same);
+  EXPECT_FALSE(net != same);
+
+  other.G().space().transform([](const std::array<real_t, 1> xi) {
+    return std::array<real_t, 1>{2 * xi[0] + 1};
+  });
+  EXPECT_FALSE(net == other);
+  EXPECT_TRUE(net != other);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   iganet::init();
