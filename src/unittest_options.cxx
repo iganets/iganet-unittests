@@ -106,6 +106,21 @@ TEST(Options, Options_conversion) {
   EXPECT_TRUE(tensorOptions.is_sparse());
 }
 
+TEST(Options, Options_guess_device_index) {
+#ifdef IGANET_WITH_MPI
+  const auto count = iganet::utils::getenv(
+      "IGANET_DEVICE_COUNT",
+      (torch::cuda::is_available()
+           ? torch::cuda::device_count()
+           : (torch::xpu::is_available() ? torch::xpu::device_count() : 1)));
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  EXPECT_EQ(iganet::guess_device_index(), static_cast<int>(rank % count));
+#else
+  EXPECT_EQ(iganet::guess_device_index(), 0);
+#endif
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   iganet::init();
