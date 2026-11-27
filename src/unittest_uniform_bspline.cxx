@@ -2324,6 +2324,35 @@ TEST_F(BSplineTest, UniformBSpline_to_device) {
   }
 }
 
+TEST_F(BSplineTest, UniformBSpline_arithmetic_operators_keep_operands) {
+  using bspline_type = iganet::UniformBSpline<real_t, 3, 3, 4>;
+  bspline_type a({4, 5}, iganet::init::greville, options);
+  bspline_type a_ref({4, 5}, iganet::init::greville, options);
+  bspline_type b({4, 5}, iganet::init::greville, options);
+  auto one = [](const std::array<real_t, 2> xi) {
+    return std::array<real_t, 3>{1.0_r, 2.0_r, 3.0_r};
+  };
+  a.transform(one);
+  a_ref.transform(one);
+  b.transform([](const std::array<real_t, 2> xi) {
+    return std::array<real_t, 3>{10.0_r, 20.0_r, 30.0_r};
+  });
+
+  auto expect = [&](const auto &result, std::array<double, 3> v) {
+    for (iganet::short_t i = 0; i < 3; ++i)
+      EXPECT_TRUE(torch::allclose(result.coeffs(i),
+                                  torch::full_like(a_ref.coeffs(i), v[i])));
+    EXPECT_TRUE(a == a_ref);
+  };
+
+  expect(a + b, {11.0, 22.0, 33.0});
+  expect(a - b, {-9.0, -18.0, -27.0});
+  expect(a * 2.0_r, {2.0, 4.0, 6.0});
+  expect(a * std::array<real_t, 3>{2.0_r, 3.0_r, 4.0_r}, {2.0, 6.0, 12.0});
+  expect(a / 2.0_r, {0.5, 1.0, 1.5});
+  expect(a / std::array<real_t, 3>{2.0_r, 4.0_r, 8.0_r}, {0.5, 0.5, 0.375});
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   iganet::init();
