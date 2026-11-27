@@ -13,8 +13,12 @@
 */
 
 #include <iganet/iganet.h>
+#include <xml_charconv.hpp>
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <iterator>
 #include <sstream>
+#include <vector>
 
 namespace {
 class SerializableValue final : public iganet::utils::Serializable {
@@ -67,7 +71,12 @@ TEST(Serialize, MatrixXmlContainsMetadataAndValues) {
   EXPECT_STREQ(node.attribute("label").value(), "test");
   EXPECT_EQ(node.attribute("rows").as_int(), 2);
   EXPECT_EQ(node.attribute("cols").as_int(), 2);
-  EXPECT_NE(std::string(node.text().get()).find("4.000000"), std::string::npos);
+  // The text holds the four values, in any notation that reads back exactly.
+  std::istringstream text(node.text().get());
+  std::vector<double> values{std::istream_iterator<double>(text),
+                             std::istream_iterator<double>()};
+  std::sort(values.begin(), values.end());
+  EXPECT_EQ(values, (std::vector<double>{1., 2., 3., 4.}));
 }
 
 TEST(Serialize, TensorArrayXmlAssignsIndices) {
@@ -204,5 +213,124 @@ TEST(SerializeProperties, RoundTripPreservesValuesShapeDtypeAndMetadata) {
     EXPECT_TRUE(torch::equal(restored, source));
     EXPECT_EQ(restored.sizes(), source.sizes());
     EXPECT_EQ(restored.scalar_type(), source.scalar_type());
+  }
+}
+
+namespace {
+template <std::size_t N>
+torch::Tensor extremeTensor() {
+  const auto values = iganet::unittests::xml::extreme_values<double>();
+  auto tensor = torch::from_blob(const_cast<double *>(values.data()),
+                                 {static_cast<int64_t>(values.size())},
+                                 torch::kFloat64)
+                    .clone();
+  return N == 1 ? tensor : tensor.reshape({1, static_cast<int64_t>(values.size())});
+}
+} // namespace
+
+TEST(Serialize, XmlRoundTripKeepsEveryDigit) {
+  for (const std::string tag : {"Matrix", "Tensor"}) {
+    SCOPED_TRACE(tag);
+
+    auto source1 = extremeTensor<1>();
+    auto doc1 = iganet::utils::to_xml<double, 1>(source1, tag, 3, "values");
+    auto restored1 = torch::zeros({0}, torch::kFloat64);
+    iganet::utils::from_xml<double, 1>(doc1, restored1, tag, 3, "values");
+    EXPECT_TRUE(torch::equal(restored1, source1));
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<double>(restored1, source1));
+
+    auto source2 = extremeTensor<2>();
+    auto doc2 = iganet::utils::to_xml<double, 2>(source2, tag, 3, "values");
+    auto restored2 = torch::zeros({0, 0}, torch::kFloat64);
+    iganet::utils::from_xml<double, 2>(doc2, restored2, tag, 3, "values");
+    EXPECT_TRUE(torch::equal(restored2, source2));
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<double>(restored2, source2));
+  }
+}
+
+TEST(Serialize, XmlImportAcceptsWhitespaceForms) {
+  const auto values = iganet::unittests::xml::extreme_values<double>();
+  auto source = extremeTensor<1>();
+
+  for (const auto &[name, separators] :
+       iganet::unittests::xml::whitespace_forms()) {
+    SCOPED_TRACE(name);
+
+    auto matrix = iganet::utils::to_xml<double, 1>(source, "Matrix", 3, "v");
+    matrix.child("xml").child("Matrix").text().set(
+        iganet::unittests::xml::join(values, separators, "\n ", "\t\n")
+            .c_str());
+    auto restored = torch::zeros({0}, torch::kFloat64);
+    iganet::utils::from_xml<double, 1>(matrix, restored, "Matrix", 3, "v");
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<double>(restored, source));
+
+    auto tensor = iganet::utils::to_xml<double, 1>(source, "Tensor", 3, "v");
+    tensor.child("xml").child("Tensor").child("Dimensions").text().set(
+        "\t 7 \r\n");
+    tensor.child("xml").child("Tensor").child("Data").text().set(
+        iganet::unittests::xml::join(values, separators, "  ", "\n").c_str());
+    auto restored_tensor = torch::zeros({0}, torch::kFloat64);
+    iganet::utils::from_xml<double, 1>(tensor, restored_tensor, "Tensor", 3,
+                                       "v");
+    EXPECT_TRUE(
+        iganet::unittests::xml::bit_equal<double>(restored_tensor, source));
+  }
+}
+
+TEST(Serialize, XmlImportRejectsMalformedNumbers) {
+  auto source = torch::tensor({1., 2., 3.}, torch::kFloat64);
+
+  const auto import = [&](const std::string &tag, const std::string &child,
+                          const std::string &text) {
+    auto doc = iganet::utils::to_xml<double, 1>(source, tag, 3, "v");
+    auto node = doc.child("xml").child(tag.c_str());
+    (child.empty() ? node : node.child(child.c_str())).text().set(text.c_str());
+    auto restored = torch::zeros({0}, torch::kFloat64);
+    iganet::utils::from_xml<double, 1>(doc, restored, tag, 3, "v");
+  };
+
+  for (const std::string bad : {"1.5abc", "abc", "1,5", "1e"}) {
+    SCOPED_TRACE(bad);
+    const auto matrix = iganet::unittests::xml::runtime_error_message(
+        [&] { import("Matrix", "", "1 " + bad + " 3"); });
+    EXPECT_NE(matrix.find("offset 2"), std::string::npos) << matrix;
+    EXPECT_NE(matrix.find("\"" + bad + "\""), std::string::npos) << matrix;
+
+    EXPECT_FALSE(iganet::unittests::xml::runtime_error_message(
+                     [&] { import("Tensor", "Data", "1 " + bad + " 3"); })
+                     .empty());
+    EXPECT_FALSE(iganet::unittests::xml::runtime_error_message(
+                     [&] { import("Tensor", "Dimensions", bad); })
+                     .empty());
+  }
+
+  EXPECT_EQ(iganet::unittests::xml::runtime_error_message(
+                [&] { import("Matrix", "", ""); }),
+            "XML object does not provide enough coefficients");
+  EXPECT_EQ(iganet::unittests::xml::runtime_error_message(
+                [&] { import("Tensor", "Data", " \n"); }),
+            "XML object does not provide enough coefficients");
+  EXPECT_EQ(iganet::unittests::xml::runtime_error_message(
+                [&] { import("Matrix", "", "1 2 3 4"); }),
+            "XML object provides too many coefficients");
+}
+
+TEST(Serialize, XmlExportAndImportIgnoreTheGlobalLocale) {
+  iganet::unittests::xml::DecimalCommaLocale german;
+  if (!german.active())
+    GTEST_SKIP() << "locale de_DE.UTF-8 with a decimal comma is not installed";
+
+  ASSERT_EQ(std::to_string(1.5), "1,500000");
+
+  auto source = extremeTensor<1>();
+  for (const std::string tag : {"Matrix", "Tensor"}) {
+    auto doc = iganet::utils::to_xml<double, 1>(source, tag, 3, "v");
+    const auto node = doc.child("xml").child(tag.c_str());
+    const std::string text =
+        (tag == "Matrix" ? node : node.child("Data")).text().get();
+    EXPECT_EQ(text.find(','), std::string::npos) << text;
+    auto restored = torch::zeros({0}, torch::kFloat64);
+    iganet::utils::from_xml<double, 1>(doc, restored, tag, 3, "v");
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<double>(restored, source));
   }
 }

@@ -129,6 +129,24 @@ foreach(unittest ${UNITTESTS})
 endforeach()
 
 ########################################################################
+# Collect benchmark sources
+#
+# Benchmarks are excluded from the default build and from the test set;
+# build one explicitly, e.g. `cmake --build . --target xml_roundtrip`.
+########################################################################
+file(GLOB BENCHMARKS benchmarks/*.cxx)
+
+foreach(benchmark ${BENCHMARKS})
+
+  get_filename_component(name ${benchmark} NAME_WE)
+  add_executable(${name} EXCLUDE_FROM_ALL ${benchmark})
+
+  target_link_libraries(${name} PRIVATE iganet::core)
+  target_link_libraries(${name} PRIVATE iganet::unittests)
+
+endforeach()
+
+########################################################################
 # Create symbolic link to data files
 ########################################################################
 file(MAKE_DIRECTORY

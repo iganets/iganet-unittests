@@ -13,6 +13,7 @@
 */
 
 #include <common.hpp>
+#include <xml_charconv.hpp>
 #include <filesystem>
 #include <iganet/iganet.h>
 #include <iostream>
@@ -2322,6 +2323,164 @@ TEST_F(BSplineTest, UniformBSpline_to_device) {
     } else
       EXPECT_THROW(bspline.to(torch::kMPS), c10::Error);
   }
+}
+
+TEST_F(BSplineTest, UniformBSpline_to_from_xml_precision) {
+  iganet::UniformBSpline<real_t, 2, 2, 3> bspline_out({4, 5},
+                                                      iganet::init::greville,
+                                                      options);
+  bspline_out.transform([](const std::array<real_t, 2> xi) {
+    return std::array<real_t, 2>{
+        static_cast<real_t>(0.123456789012345) + xi[0],
+        static_cast<real_t>(1e-9) * (1.0_r + xi[1])};
+  });
+
+  pugi::xml_document doc = bspline_out.to_xml();
+
+  iganet::UniformBSpline<real_t, 2, 2, 3> bspline_in(options);
+  bspline_in.from_xml(doc);
+
+  for (iganet::short_t g = 0; g < 2; ++g)
+    EXPECT_TRUE(torch::equal(bspline_in.coeffs(g), bspline_out.coeffs(g)));
+}
+
+namespace {
+
+/// Extreme values as the two components of a degree 1 B-spline with 7
+/// coefficients.
+template <typename real_t>
+iganet::UniformBSpline<real_t, 2, 1>
+make_extreme_uniform(const iganet::Options<real_t> &options) {
+  const auto values = iganet::unittests::xml::extreme_values<real_t>();
+  const std::vector<real_t> reversed(values.rbegin(), values.rend());
+
+  iganet::UniformBSpline<real_t, 2, 1> bspline({7}, iganet::init::zeros,
+                                               options);
+  bspline.coeffs(0) = iganet::utils::to_tensor(values, options);
+  bspline.coeffs(1) = iganet::utils::to_tensor(reversed, options);
+  return bspline;
+}
+
+} // namespace
+
+TEST_F(BSplineTest, UniformBSpline_to_from_xml_charconv_roundtrip) {
+  auto bspline_out = make_extreme_uniform<real_t>(options);
+
+  pugi::xml_document doc = bspline_out.to_xml();
+
+  iganet::UniformBSpline<real_t, 2, 1> bspline_in(options);
+  bspline_in.from_xml(doc);
+
+  for (iganet::short_t g = 0; g < 2; ++g) {
+    EXPECT_TRUE(torch::equal(bspline_in.coeffs(g), bspline_out.coeffs(g)));
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+        bspline_in.coeffs(g), bspline_out.coeffs(g)));
+  }
+  EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+      bspline_in.knots(0), bspline_out.knots(0)));
+}
+
+TEST_F(BSplineTest, UniformBSpline_to_from_xml_whitespace) {
+  auto bspline_out = make_extreme_uniform<real_t>(options);
+  const auto knots = iganet::unittests::xml::to_vector<real_t>(
+      bspline_out.knots(0));
+  const auto first =
+      iganet::unittests::xml::to_vector<real_t>(bspline_out.coeffs(0));
+  const auto second =
+      iganet::unittests::xml::to_vector<real_t>(bspline_out.coeffs(1));
+  std::vector<real_t> interleaved;
+  for (std::size_t i = 0; i < first.size(); ++i) {
+    interleaved.push_back(first[i]);
+    interleaved.push_back(second[i]);
+  }
+
+  for (const auto &[name, separators] :
+       iganet::unittests::xml::whitespace_forms()) {
+    SCOPED_TRACE(name);
+
+    pugi::xml_document doc = bspline_out.to_xml();
+    auto geometry = doc.child("xml").child("Geometry");
+    geometry.child("Basis")
+        .child("KnotVector")
+        .text()
+        .set(iganet::unittests::xml::join(knots, separators, "  ", "\n  ")
+                 .c_str());
+    geometry.child("coefs")
+        .text()
+        .set(iganet::unittests::xml::join(interleaved, separators, "\n\t",
+                                          " \r\n")
+                 .c_str());
+
+    iganet::UniformBSpline<real_t, 2, 1> bspline_in(options);
+    ASSERT_NO_THROW(bspline_in.from_xml(doc));
+
+    for (iganet::short_t g = 0; g < 2; ++g)
+      EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+          bspline_in.coeffs(g), bspline_out.coeffs(g)));
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+        bspline_in.knots(0), bspline_out.knots(0)));
+  }
+}
+
+TEST_F(BSplineTest, UniformBSpline_to_from_xml_rejects_malformed_coefficients) {
+  auto bspline_out = make_extreme_uniform<real_t>(options);
+
+  const auto import = [&](const std::string &coefficients) {
+    pugi::xml_document doc = bspline_out.to_xml();
+    doc.child("xml").child("Geometry").child("coefs").text().set(
+        coefficients.c_str());
+    iganet::UniformBSpline<real_t, 2, 1> bspline_in(options);
+    bspline_in.from_xml(doc);
+  };
+
+  // The offending value follows "0.5 " and so starts at offset 4.
+  for (const std::string bad :
+       {"1.5abc", "abc", "1,5", "1e", "0x10", "--1", "1e999"}) {
+    SCOPED_TRACE(bad);
+    const auto message = iganet::unittests::xml::runtime_error_message(
+        [&] { import("0.5 " + bad + " 0.5"); });
+    EXPECT_NE(message.find("offset 4"), std::string::npos) << message;
+    EXPECT_NE(message.find("\"" + bad + "\""), std::string::npos) << message;
+  }
+
+  // empty coefficient list
+  for (const std::string empty : {"", "  \n\t\r\n"})
+    EXPECT_EQ(iganet::unittests::xml::runtime_error_message(
+                  [&] { import(empty); }),
+              "XML object does not provide enough coefficients");
+
+  // too many coefficients
+  const auto values = iganet::unittests::xml::extreme_values<real_t>();
+  EXPECT_EQ(iganet::unittests::xml::runtime_error_message([&] {
+              import(iganet::unittests::xml::join(
+                         std::vector<real_t>(values.begin(), values.end()),
+                         {" "}) +
+                     " 1 2 3 4 5 6 7 8");
+            }),
+            "XML object provides too many coefficients");
+}
+
+TEST_F(BSplineTest, UniformBSpline_to_from_xml_locale) {
+  iganet::unittests::xml::DecimalCommaLocale german;
+  if (!german.active())
+    GTEST_SKIP() << "locale de_DE.UTF-8 with a decimal comma is not installed";
+
+  // The locale is in effect: std::to_string follows it.
+  ASSERT_EQ(std::to_string(1.5), "1,500000");
+
+  auto bspline_out = make_extreme_uniform<real_t>(options);
+  pugi::xml_document doc = bspline_out.to_xml();
+
+  const std::string coefficients =
+      doc.child("xml").child("Geometry").child("coefs").text().get();
+  EXPECT_EQ(coefficients.find(','), std::string::npos) << coefficients;
+
+  iganet::UniformBSpline<real_t, 2, 1> bspline_in(options);
+  bspline_in.from_xml(doc);
+
+  for (iganet::short_t g = 0; g < 2; ++g)
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+        bspline_in.coeffs(g), bspline_out.coeffs(g)));
 }
 
 int main(int argc, char **argv) {

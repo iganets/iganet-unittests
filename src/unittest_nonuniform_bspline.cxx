@@ -13,6 +13,7 @@
 */
 
 #include <common.hpp>
+#include <xml_charconv.hpp>
 #include <filesystem>
 #include <iganet/iganet.h>
 #include <iostream>
@@ -2382,6 +2383,127 @@ TEST_F(BSplineTest, NonUniformBSpline_insert_knots) {
 
     EXPECT_TRUE(bspline.isclose(bspline_ref));
   }
+}
+
+namespace {
+
+/// Degree 1 B-spline with 9 knots (a knot-like position for each extreme
+/// value) and 7 coefficients that hold the same values.
+template <typename real_t>
+iganet::NonUniformBSpline<real_t, 1, 1>
+make_extreme_nonuniform(const iganet::Options<real_t> &options) {
+  const auto values = iganet::unittests::xml::extreme_values<real_t>();
+
+  // Knots are non-decreasing: -0.0, -0.0, subnormal, smallest normal, 1e-9,
+  // 4.9e-7, 0.123456789012345, largest normal, largest normal.
+  std::array<std::vector<real_t>, 1> knots{std::vector<real_t>{
+      values[4], values[4], values[3], values[6], values[1], values[2],
+      values[0], values[5], values[5]}};
+
+  iganet::NonUniformBSpline<real_t, 1, 1> bspline(knots, iganet::init::zeros,
+                                                  options);
+  bspline.coeffs(0) = iganet::utils::to_tensor(values, options);
+  return bspline;
+}
+
+} // namespace
+
+TEST_F(BSplineTest, NonUniformBSpline_to_from_xml_charconv_roundtrip) {
+  auto bspline_out = make_extreme_nonuniform<real_t>(options);
+
+  pugi::xml_document doc = bspline_out.to_xml();
+
+  iganet::NonUniformBSpline<real_t, 1, 1> bspline_in(options);
+  bspline_in.from_xml(doc);
+
+  EXPECT_TRUE(torch::equal(bspline_in.knots(0), bspline_out.knots(0)));
+  EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+      bspline_in.knots(0), bspline_out.knots(0)));
+  EXPECT_TRUE(torch::equal(bspline_in.coeffs(0), bspline_out.coeffs(0)));
+  EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+      bspline_in.coeffs(0), bspline_out.coeffs(0)));
+}
+
+TEST_F(BSplineTest, NonUniformBSpline_to_from_xml_whitespace) {
+  auto bspline_out = make_extreme_nonuniform<real_t>(options);
+  const auto knots = iganet::unittests::xml::to_vector<real_t>(
+      bspline_out.knots(0));
+  const auto coeffs = iganet::unittests::xml::to_vector<real_t>(
+      bspline_out.coeffs(0));
+
+  for (const auto &[name, separators] :
+       iganet::unittests::xml::whitespace_forms()) {
+    SCOPED_TRACE(name);
+
+    pugi::xml_document doc = bspline_out.to_xml();
+    auto geometry = doc.child("xml").child("Geometry");
+    geometry.child("Basis")
+        .child("KnotVector")
+        .text()
+        .set(iganet::unittests::xml::join(knots, separators, "\t", "\n")
+                 .c_str());
+    geometry.child("coefs")
+        .text()
+        .set(iganet::unittests::xml::join(coeffs, separators, " ", "  ")
+                 .c_str());
+
+    iganet::NonUniformBSpline<real_t, 1, 1> bspline_in(options);
+    ASSERT_NO_THROW(bspline_in.from_xml(doc));
+
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+        bspline_in.knots(0), bspline_out.knots(0)));
+    EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+        bspline_in.coeffs(0), bspline_out.coeffs(0)));
+  }
+}
+
+TEST_F(BSplineTest, NonUniformBSpline_to_from_xml_rejects_malformed_knots) {
+  auto bspline_out = make_extreme_nonuniform<real_t>(options);
+
+  // The offending value follows "0 0 " and so starts at offset 4.
+  for (const std::string bad : {"1.5abc", "abc", "1,5", "1e", "1e999"}) {
+    SCOPED_TRACE(bad);
+    pugi::xml_document doc = bspline_out.to_xml();
+    doc.child("xml")
+        .child("Geometry")
+        .child("Basis")
+        .child("KnotVector")
+        .text()
+        .set(("0 0 " + bad + " 1 1").c_str());
+
+    iganet::NonUniformBSpline<real_t, 1, 1> bspline_in(options);
+    const auto message = iganet::unittests::xml::runtime_error_message(
+        [&] { bspline_in.from_xml(doc); });
+    EXPECT_NE(message.find("offset 4"), std::string::npos) << message;
+    EXPECT_NE(message.find("\"" + bad + "\""), std::string::npos) << message;
+  }
+}
+
+TEST_F(BSplineTest, NonUniformBSpline_to_from_xml_locale) {
+  iganet::unittests::xml::DecimalCommaLocale german;
+  if (!german.active())
+    GTEST_SKIP() << "locale de_DE.UTF-8 with a decimal comma is not installed";
+
+  ASSERT_EQ(std::to_string(1.5), "1,500000");
+
+  auto bspline_out = make_extreme_nonuniform<real_t>(options);
+  pugi::xml_document doc = bspline_out.to_xml();
+
+  const std::string knots = doc.child("xml")
+                                .child("Geometry")
+                                .child("Basis")
+                                .child("KnotVector")
+                                .text()
+                                .get();
+  EXPECT_EQ(knots.find(','), std::string::npos) << knots;
+
+  iganet::NonUniformBSpline<real_t, 1, 1> bspline_in(options);
+  bspline_in.from_xml(doc);
+
+  EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+      bspline_in.knots(0), bspline_out.knots(0)));
+  EXPECT_TRUE(iganet::unittests::xml::bit_equal<real_t>(
+      bspline_in.coeffs(0), bspline_out.coeffs(0)));
 }
 
 int main(int argc, char **argv) {
