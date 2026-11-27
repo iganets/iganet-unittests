@@ -5090,6 +5090,24 @@ TEST_F(FunctionSpaceTest, FunctionSpace_to_dtype) {}
 
 TEST_F(FunctionSpaceTest, FunctionSpace_to_device) {}
 
+TEST_F(FunctionSpaceTest, FunctionSpace_curl_parDim2) {
+  using BSpline = iganet::UniformBSpline<real_t, 1, 1, 1>;
+  iganet::FunctionSpace<std::tuple<BSpline, BSpline>> functionspace(
+      {3, 3}, {3, 3}, iganet::init::greville, options);
+  // u = (2x + 3y, 5x + 7y)  =>  du_y/dx - du_x/dy = 5 - 3
+  functionspace.space<0>().transform([](const std::array<real_t, 2> xi) {
+    return std::array<real_t, 1>{2.0_r * xi[0] + 3.0_r * xi[1]};
+  });
+  functionspace.space<1>().transform([](const std::array<real_t, 2> xi) {
+    return std::array<real_t, 1>{5.0_r * xi[0] + 7.0_r * xi[1]};
+  });
+  auto xi = iganet::utils::to_tensorArray(options, {0.1_r, 0.3_r, 0.7_r},
+                                          {0.2_r, 0.6_r, 0.9_r});
+  auto curl = functionspace.curl(xi);
+  EXPECT_TRUE(
+      torch::allclose(*curl[0], torch::full_like(xi[0], 2.0), 1e-4, 1e-5));
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   iganet::init();

@@ -2324,6 +2324,27 @@ TEST_F(BSplineTest, UniformBSpline_to_device) {
   }
 }
 
+TEST_F(BSplineTest, UniformBSpline_curl_parDim3_geoDim3) {
+  iganet::UniformBSpline<real_t, 3, 1, 1, 1> bspline(
+      {3, 3, 3}, iganet::init::greville, options);
+  // u = (2y + 3z, 5x + 7z, 11x + 13y)  =>  curl u = (13-7, 3-11, 5-2)
+  bspline.transform([](const std::array<real_t, 3> xi) {
+    return std::array<real_t, 3>{2.0_r * xi[1] + 3.0_r * xi[2],
+                                 5.0_r * xi[0] + 7.0_r * xi[2],
+                                 11.0_r * xi[0] + 13.0_r * xi[1]};
+  });
+  auto xi = iganet::utils::to_tensorArray(options, {0.1_r, 0.3_r, 0.7_r},
+                                          {0.2_r, 0.6_r, 0.9_r},
+                                          {0.8_r, 0.4_r, 0.3_r});
+  auto curl = bspline.curl(xi);
+  EXPECT_TRUE(
+      torch::allclose(*curl[0], torch::full_like(xi[0], 6.0), 1e-4, 1e-5));
+  EXPECT_TRUE(
+      torch::allclose(*curl[1], torch::full_like(xi[0], -8.0), 1e-4, 1e-5));
+  EXPECT_TRUE(
+      torch::allclose(*curl[2], torch::full_like(xi[0], 3.0), 1e-4, 1e-5));
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   iganet::init();
