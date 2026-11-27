@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <sstream>
+#include <filesystem>
 
 namespace {
 
@@ -130,4 +131,33 @@ TEST(Activation, BatchAndGroupNormalizationExposeState) {
   EXPECT_EQ(instance_norm.apply(input).sizes(), input.sizes());
   iganet::LocalResponseNorm local_response_norm(2);
   EXPECT_EQ(local_response_norm.apply(input).sizes(), input.sizes());
+}
+
+TEST(Activation, InstanceNormArchiveRoundTrip) {
+  auto mean = torch::tensor({0.5, -1.0}, torch::kFloat64);
+  auto variance = torch::tensor({2.0, 3.0}, torch::kFloat64);
+  auto weight = torch::tensor({1.5, 0.5}, torch::kFloat64);
+  auto bias = torch::tensor({0.25, -0.75}, torch::kFloat64);
+  iganet::InstanceNorm source(mean, variance, weight, bias, 0.0009765625, 0.25,
+                              false);
+
+  torch::serialize::OutputArchive output;
+  source.write(output);
+  const auto archiveFile =
+      (std::filesystem::temp_directory_path() / "iganet_instance_norm.pt")
+          .string();
+  output.save_to(archiveFile);
+  torch::serialize::InputArchive input;
+  input.load_from(archiveFile);
+  std::filesystem::remove(archiveFile);
+
+  iganet::InstanceNorm loaded;
+  EXPECT_NO_THROW(loaded.read(input));
+  EXPECT_TRUE(torch::equal(loaded.options().running_mean(), mean));
+  EXPECT_TRUE(torch::equal(loaded.options().running_var(), variance));
+  EXPECT_TRUE(torch::equal(loaded.options().weight(), weight));
+  EXPECT_TRUE(torch::equal(loaded.options().bias(), bias));
+  EXPECT_DOUBLE_EQ(loaded.options().eps(), 0.0009765625);
+  EXPECT_DOUBLE_EQ(loaded.options().momentum(), 0.25);
+  EXPECT_FALSE(loaded.options().use_input_stats());
 }
