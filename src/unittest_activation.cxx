@@ -15,6 +15,7 @@
 #include <iganet/iganet.h>
 #include <gtest/gtest.h>
 
+#include <filesystem>
 #include <sstream>
 
 namespace {
@@ -130,4 +131,22 @@ TEST(Activation, BatchAndGroupNormalizationExposeState) {
   EXPECT_EQ(instance_norm.apply(input).sizes(), input.sizes());
   iganet::LocalResponseNorm local_response_norm(2);
   EXPECT_EQ(local_response_norm.apply(input).sizes(), input.sizes());
+}
+
+TEST(Activation, CELUArchiveRoundTrip) {
+  iganet::CELU source(1e-5, true);
+
+  torch::serialize::OutputArchive output;
+  source.write(output);
+  const auto archiveFile =
+      (std::filesystem::temp_directory_path() / "iganet_celu.pt").string();
+  output.save_to(archiveFile);
+  torch::serialize::InputArchive input;
+  input.load_from(archiveFile);
+  std::filesystem::remove(archiveFile);
+
+  iganet::CELU loaded;
+  EXPECT_NO_THROW(loaded.read(input));
+  EXPECT_DOUBLE_EQ(loaded.options().alpha(), 1e-5);
+  EXPECT_TRUE(loaded.options().inplace());
 }
